@@ -320,7 +320,6 @@ export class Player {
         this.game.audio.playSFX('explosion');
         this.performGroundPoundShockwave();
       }
-      }
     }
 
     // Spawn cosmetic movement trails

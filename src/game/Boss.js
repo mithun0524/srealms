@@ -447,10 +447,21 @@ export class Boss {
         }
       },
       draw(ctx) {
-        ctx.fillStyle = this.color;
+        ctx.save();
+        ctx.shadowColor = '#a855f7';
+        ctx.shadowBlur = 8;
+        ctx.fillStyle = '#d8b4fe';
+        ctx.strokeStyle = '#c084fc';
+        ctx.lineWidth = 1.2;
         ctx.beginPath();
-        ctx.arc(this.x, this.y, 5, 0, Math.PI * 2);
+        ctx.moveTo(this.x, this.y - 6);
+        ctx.lineTo(this.x + 4, this.y);
+        ctx.lineTo(this.x, this.y + 6);
+        ctx.lineTo(this.x - 4, this.y);
+        ctx.closePath();
         ctx.fill();
+        ctx.stroke();
+        ctx.restore();
       }
     });
   }
@@ -473,10 +484,18 @@ export class Boss {
         this.y += this.vy;
       },
       draw(ctx) {
-        ctx.fillStyle = this.color;
+        ctx.save();
+        ctx.shadowColor = '#f97316';
+        ctx.shadowBlur = 10;
+        let grad = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, 6);
+        grad.addColorStop(0, '#fef08a');
+        grad.addColorStop(0.5, '#f97316');
+        grad.addColorStop(1, '#dc2626');
+        ctx.fillStyle = grad;
         ctx.beginPath();
         ctx.arc(this.x, this.y, 6, 0, Math.PI * 2);
         ctx.fill();
+        ctx.restore();
       }
     });
   }
@@ -499,10 +518,18 @@ export class Boss {
         this.y += this.vy;
       },
       draw(ctx) {
-        ctx.fillStyle = this.color;
+        ctx.save();
+        ctx.shadowColor = '#d946ef';
+        ctx.shadowBlur = 12;
+        // black core
+        ctx.fillStyle = '#090514';
+        ctx.strokeStyle = '#d946ef';
+        ctx.lineWidth = 1.5;
         ctx.beginPath();
         ctx.arc(this.x, this.y, 7, 0, Math.PI * 2);
         ctx.fill();
+        ctx.stroke();
+        ctx.restore();
       }
     });
   }
@@ -539,18 +566,52 @@ export class Boss {
         }
       },
       draw(ctx) {
+        ctx.save();
+        ctx.shadowColor = this.color;
+        ctx.shadowBlur = 8;
         ctx.fillStyle = this.color;
-        ctx.beginPath();
-        if (type === 'spike' || type === 'icicle') {
+        if (type === 'spike') {
+          // Volcanic shard or needle
+          ctx.strokeStyle = '#ef4444';
+          ctx.lineWidth = 1;
+          ctx.beginPath();
           ctx.moveTo(this.x, this.y);
           ctx.lineTo(this.x + this.width, this.y);
           ctx.lineTo(this.x + this.width / 2, this.y + this.height);
+          ctx.closePath();
+          ctx.fill();
+          ctx.stroke();
+        } else if (type === 'icicle') {
+          // Translucent blue ice spike
+          let iceGrad = ctx.createLinearGradient(this.x, this.y, this.x, this.y + this.height);
+          iceGrad.addColorStop(0, '#e0f2fe');
+          iceGrad.addColorStop(1, '#0284c7');
+          ctx.fillStyle = iceGrad;
+          ctx.beginPath();
+          ctx.moveTo(this.x + 3, this.y);
+          ctx.lineTo(this.x + this.width - 3, this.y);
+          ctx.lineTo(this.x + this.width / 2, this.y + this.height);
+          ctx.closePath();
+          ctx.fill();
         } else {
-          // Boulder (circle)
+          // Rock boulder with electric lines
+          ctx.fillStyle = '#475569';
+          ctx.strokeStyle = '#64748b';
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
           ctx.arc(this.x + this.width/2, this.y + this.height/2, this.width/2, 0, Math.PI*2);
+          ctx.fill();
+          ctx.stroke();
+          
+          // cracks
+          ctx.strokeStyle = '#facc15';
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(this.x + 4, this.y + 6);
+          ctx.lineTo(this.x + this.width - 4, this.y + this.height - 6);
+          ctx.stroke();
         }
-        ctx.closePath();
-        ctx.fill();
+        ctx.restore();
       }
     };
     this.game.world.projectiles.push(hazard);
@@ -588,10 +649,18 @@ export class Boss {
           }
         },
         draw(ctx) {
-          ctx.fillStyle = this.color;
+          ctx.save();
+          ctx.shadowColor = '#f97316';
+          ctx.shadowBlur = 10;
+          let fireGrad = ctx.createRadialGradient(this.x + 8, this.y + 8, 0, this.x + 8, this.y + 8, 8);
+          fireGrad.addColorStop(0, '#fef08a');
+          fireGrad.addColorStop(0.6, '#f97316');
+          fireGrad.addColorStop(1, 'rgba(239, 68, 68, 0.1)');
+          ctx.fillStyle = fireGrad;
           ctx.beginPath();
           ctx.arc(this.x + 8, this.y + 8, 8, 0, Math.PI*2);
           ctx.fill();
+          ctx.restore();
         }
       };
       this.game.world.projectiles.push(wave);
@@ -669,46 +738,150 @@ export class Boss {
   }
 
   drawTortoise(ctx) {
-    // Green shell
-    ctx.fillStyle = '#065f46';
+    // Colossal mossy runic tortoise
+    const breathing = Math.sin(this.game.levelTime * 0.005) * 1.5;
+    
+    // Draw 4 heavy armored stone legs
+    ctx.fillStyle = '#334155'; // Dark grey stone legs
+    ctx.strokeStyle = '#475569';
+    ctx.lineWidth = 2;
+    
+    // Back legs
+    ctx.fillRect(-this.width / 2 + 6, 8 + breathing, 12, 16);
+    ctx.fillRect(this.width / 4 - 2, 8 - breathing, 12, 16);
+    
+    // Green runic shell
+    let shellGrad = ctx.createLinearGradient(0, -this.height / 2, 0, this.height / 2);
+    shellGrad.addColorStop(0, '#064e3b'); // Dark green moss
+    shellGrad.addColorStop(1, '#065f46');
+    ctx.fillStyle = shellGrad;
     ctx.beginPath();
-    ctx.roundRect(-this.width / 2, -this.height / 2 + 12, this.width, this.height - 12, 16);
+    ctx.roundRect(-this.width / 2, -this.height / 2 + 10, this.width, this.height - 10, 18);
+    ctx.fill();
+    ctx.stroke();
+
+    // Draw shell plates (hexagons)
+    ctx.strokeStyle = '#047857';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    // Hex 1
+    ctx.moveTo(-20, -10); ctx.lineTo(-10, -18); ctx.lineTo(10, -18); ctx.lineTo(20, -10);
+    ctx.lineTo(10, -2); ctx.lineTo(-10, -2); ctx.closePath();
+    // Hex 2
+    ctx.moveTo(-32, 2); ctx.lineTo(-20, -6); ctx.lineTo(-20, 10); ctx.lineTo(-32, 14);
+    // Draw lines
+    ctx.stroke();
+
+    // Glowing emerald runes (pulsing)
+    ctx.save();
+    const runeGlow = 0.5 + Math.sin(this.game.levelTime * 0.007) * 0.3;
+    ctx.strokeStyle = `rgba(52, 211, 153, ${runeGlow})`;
+    ctx.lineWidth = 2.2;
+    ctx.shadowColor = '#34d399';
+    ctx.shadowBlur = 8;
+    ctx.beginPath();
+    // Rune A
+    ctx.moveTo(-15, -8); ctx.lineTo(-10, -13); ctx.lineTo(-5, -8);
+    // Rune B
+    ctx.moveTo(5, -8); ctx.lineTo(10, -13); ctx.lineTo(15, -8);
+    ctx.stroke();
+    ctx.restore();
+
+    // Front legs
+    ctx.fillStyle = '#475569';
+    ctx.fillRect(-this.width / 2 + 2, 10 + breathing, 13, 14);
+    ctx.fillRect(this.width / 4 - 6, 10 - breathing, 13, 14);
+
+    // Dynamic bobbing neck + head
+    ctx.save();
+    ctx.translate(this.width / 2 - 4, 2 + breathing * 0.5);
+    ctx.fillStyle = '#10b981'; // Green skin
+    ctx.beginPath();
+    ctx.roundRect(-2, -6, 12, 12, 4); // neck
+    ctx.arc(8, -6, 11, 0, Math.PI * 2); // head
     ctx.fill();
 
-    // Shell yellow accents
-    ctx.fillStyle = '#fbbf24';
-    ctx.fillRect(-this.width / 4, -this.height / 2 + 16, 12, 6);
-    ctx.fillRect(8, -this.height / 2 + 16, 12, 6);
-
-    // Head
+    // Glowing green eye
     ctx.fillStyle = '#34d399';
     ctx.beginPath();
-    ctx.arc(this.width / 2 - 2, 4, 12, 0, Math.PI * 2);
+    ctx.arc(10, -8, 2.5, 0, Math.PI*2);
     ctx.fill();
-
-    // Eye
-    ctx.fillStyle = '#000';
-    ctx.fillRect(this.width / 2 + 2, 0, 3, 3);
+    ctx.restore();
   }
 
   drawSerpent(ctx) {
-    // Floating segment body
-    ctx.fillStyle = '#6d28d9';
-    ctx.strokeStyle = '#a78bfa';
-    ctx.lineWidth = 2;
+    // Segmented Amethyst Serpent
+    // We draw the head here, and we will draw tail segments behind it
+    const headScale = 1 + Math.sin(this.game.levelTime * 0.006) * 0.05;
+    ctx.scale(headScale, headScale);
+    
+    // Draw 3 tail segments trailing
+    ctx.save();
+    for (let i = 1; i <= 3; i++) {
+      const segOffset = i * 22;
+      const segY = Math.sin(this.game.levelTime * 0.005 - i * 0.8) * 14;
+      
+      // Amethyst crystal segment
+      let segGrad = ctx.createRadialGradient(-segOffset - 2, segY - 2, 1, -segOffset, segY, 11);
+      segGrad.addColorStop(0, '#c084fc');
+      segGrad.addColorStop(0.7, '#7c3aed');
+      segGrad.addColorStop(1, '#4c1d95');
+      ctx.fillStyle = segGrad;
+      ctx.strokeStyle = '#a78bfa';
+      ctx.lineWidth = 1.8;
+      
+      ctx.beginPath();
+      // Diamond crystal shape
+      ctx.moveTo(-segOffset, segY - 12);
+      ctx.lineTo(-segOffset + 12, segY);
+      ctx.lineTo(-segOffset, segY + 12);
+      ctx.lineTo(-segOffset - 12, segY);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+      
+      // Electric link beam (lightning arcs between segments)
+      ctx.strokeStyle = '#22d3ee';
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      ctx.moveTo(-segOffset + 12, segY);
+      ctx.lineTo(-segOffset + 22, Math.sin(this.game.levelTime * 0.005 - (i-1)*0.8) * 14);
+      ctx.stroke();
+    }
+    ctx.restore();
+
+    // Main head: large amethyst crystal spear-tip
+    let headGrad = ctx.createRadialGradient(-3, -4, 2, 0, 0, 24);
+    headGrad.addColorStop(0, '#d8b4fe');
+    headGrad.addColorStop(0.6, '#6d28d9');
+    headGrad.addColorStop(1, '#2e1065');
+    ctx.fillStyle = headGrad;
+    ctx.strokeStyle = '#c084fc';
+    ctx.lineWidth = 2.2;
     ctx.beginPath();
-    ctx.arc(0, 0, 24, 0, Math.PI * 2);
+    ctx.moveTo(22, 0); // nose tip
+    ctx.lineTo(-4, -20);
+    ctx.lineTo(-20, -14);
+    ctx.lineTo(-20, 14);
+    ctx.lineTo(-4, 20);
+    ctx.closePath();
     ctx.fill();
     ctx.stroke();
 
     // Crown horns
     ctx.fillStyle = '#fbbf24';
-    ctx.fillRect(-8, -32, 4, 12);
-    ctx.fillRect(4, -32, 4, 12);
+    ctx.beginPath();
+    ctx.moveTo(-8, -19); ctx.lineTo(-14, -34); ctx.lineTo(-4, -19); ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(-4, -19); ctx.lineTo(0, -36); ctx.lineTo(6, -17); ctx.fill();
 
-    // Visor eyes
+    // Glowing cyan visor visor
     ctx.fillStyle = '#22d3ee';
-    ctx.fillRect(-10, -6, 20, 4);
+    ctx.shadowColor = '#22d3ee';
+    ctx.shadowBlur = 10;
+    ctx.beginPath();
+    ctx.roundRect(0, -6, 12, 4, 1.5);
+    ctx.fill();
   }
 
   drawSerpentLasers(ctx) {
@@ -741,115 +914,306 @@ export class Boss {
   }
 
   drawRoc(ctx) {
-    // Majestic blue falcon bird
+    // Colossal Storm Roc
+    const floatSway = Math.sin(this.game.levelTime * 0.008) * 3;
+    ctx.translate(0, floatSway);
+
+    // Steel-blue body base
+    let bodyGrad = ctx.createLinearGradient(-15, -15, 20, 20);
+    bodyGrad.addColorStop(0, '#0ea5e9'); // Light blue
+    bodyGrad.addColorStop(0.5, '#0284c7');
+    bodyGrad.addColorStop(1, '#0c4a6e'); // Dark iron navy
+    ctx.fillStyle = bodyGrad;
+    ctx.strokeStyle = '#38bdf8';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.ellipse(0, 0, 36, 20, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+
+    // Eagle crest head detailing
     ctx.fillStyle = '#0284c7';
     ctx.beginPath();
-    ctx.ellipse(0, 0, 32, 18, 0, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Beak
-    ctx.fillStyle = '#fbbf24';
-    ctx.beginPath();
-    ctx.moveTo(28, -2);
-    ctx.lineTo(38, 4);
-    ctx.lineTo(28, 8);
+    ctx.moveTo(18, -12);
+    ctx.lineTo(26, -26); // Feather tuft
+    ctx.lineTo(26, -10);
+    ctx.lineTo(34, -4);
+    ctx.lineTo(26, 8);
     ctx.closePath();
     ctx.fill();
 
-    // Giant wings swaying
-    const swing = Math.sin(this.game.levelTime * 0.008) * 16;
-    ctx.fillStyle = '#0369a1';
+    // Golden sharp beak
+    ctx.fillStyle = '#eab308';
     ctx.beginPath();
-    ctx.moveTo(-10, 0);
-    ctx.lineTo(-48, -12 + swing);
-    ctx.lineTo(-24, 16);
+    ctx.moveTo(32, -3);
+    ctx.lineTo(44, 4);
+    ctx.quadraticCurveTo(36, 10, 32, 8);
     ctx.closePath();
     ctx.fill();
 
+    // Segmented cyber energy wings swaying
+    const swing = Math.sin(this.game.levelTime * 0.012) * 18;
+    ctx.save();
+    
+    // Draw 3 layered feathers on each wing
+    const drawWing = (dir) => {
+      ctx.fillStyle = dir > 0 ? '#0369a1' : '#075985';
+      ctx.strokeStyle = '#38bdf8';
+      ctx.lineWidth = 1.5;
+      
+      // Feather 1 (Main wing bone)
+      ctx.beginPath();
+      ctx.moveTo(10 * dir, -4);
+      ctx.lineTo(52 * dir, -16 + swing);
+      ctx.lineTo(26 * dir, 12);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+      
+      // Energy feathers overlay
+      ctx.fillStyle = 'rgba(56, 189, 248, 0.4)';
+      ctx.beginPath();
+      ctx.moveTo(20 * dir, 0);
+      ctx.lineTo(48 * dir, -4 + swing);
+      ctx.lineTo(26 * dir, 18);
+      ctx.closePath();
+      ctx.fill();
+    };
+
+    drawWing(-1); // Left wing
+    drawWing(1);  // Right wing
+    ctx.restore();
+
+    // Flashing neon yellow storm visor
+    ctx.fillStyle = '#facc15';
+    ctx.shadowColor = '#facc15';
+    ctx.shadowBlur = 10;
     ctx.beginPath();
-    ctx.moveTo(10, 0);
-    ctx.lineTo(48, -12 + swing);
-    ctx.lineTo(24, 16);
-    ctx.closePath();
+    ctx.roundRect(14, -8, 10, 3.5, 1);
     ctx.fill();
+    
+    // Draw lightning sparks crackling around body
+    if (Math.random() < 0.25) {
+      ctx.strokeStyle = '#38bdf8';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(-10, -10); ctx.lineTo(-18, -26); ctx.lineTo(-12, -28);
+      ctx.stroke();
+    }
   }
 
   drawColossus(ctx) {
-    // Dark stone volcanic giant
-    ctx.fillStyle = '#0f172a';
-    ctx.strokeStyle = '#ea580c';
-    ctx.lineWidth = 3;
+    // Volcanic Inferno Titan of obsidian and lava
+    const heartPulse = 1 + Math.sin(this.game.levelTime * 0.015) * 0.07;
+    
+    // Lava Core (radial glow)
+    let coreGrad = ctx.createRadialGradient(0, 0, 2, 0, 0, this.width / 2 + 10);
+    coreGrad.addColorStop(0, '#fde047'); // bright yellow
+    coreGrad.addColorStop(0.3, '#f97316'); // hot orange
+    coreGrad.addColorStop(0.7, '#dc2626'); // red plasma
+    coreGrad.addColorStop(1, 'rgba(220, 38, 38, 0)'); // transparent fade
+    ctx.fillStyle = coreGrad;
     ctx.beginPath();
-    ctx.roundRect(-this.width / 2, -this.height / 2, this.width, this.height, 12);
+    ctx.arc(0, 0, this.width / 2 + 10, 0, Math.PI*2);
+    ctx.fill();
+
+    // Floating Obsidian armor plates
+    ctx.fillStyle = '#18181b'; // obsidian black
+    ctx.strokeStyle = '#ea580c'; // magma glow joints
+    ctx.lineWidth = 2.5;
+
+    // Torso armor plate left
+    ctx.beginPath();
+    ctx.roundRect(-this.width / 2 + 4, -this.height / 2 + 15, this.width / 2 - 6, this.height - 25, 6);
     ctx.fill();
     ctx.stroke();
 
-    // Lava fissures detail
-    ctx.fillStyle = '#ea580c';
-    ctx.fillRect(-this.width/2 + 16, -10, 8, 20);
-    ctx.fillRect(this.width/2 - 24, -10, 8, 20);
-
-    // Glowing eyes
-    ctx.fillStyle = '#f97316';
+    // Torso armor plate right
     ctx.beginPath();
-    ctx.arc(-14, -20, 6, 0, Math.PI*2);
-    ctx.arc(14, -20, 6, 0, Math.PI*2);
+    ctx.roundRect(2, -this.height / 2 + 15, this.width / 2 - 6, this.height - 25, 6);
     ctx.fill();
+    ctx.stroke();
+
+    // Colossal stone shoulders
+    ctx.fillStyle = '#27272a';
+    ctx.fillRect(-this.width / 2 - 6, -this.height / 2 + 8, 12, 14);
+    ctx.fillRect(this.width / 2 - 6, -this.height / 2 + 8, 12, 14);
+
+    // Glowing Lava Veins on plates
+    ctx.strokeStyle = '#f97316';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(-20, -10); ctx.lineTo(-12, 8); ctx.lineTo(-18, 20);
+    ctx.moveTo(20, -10); ctx.lineTo(12, 8); ctx.lineTo(18, 20);
+    ctx.stroke();
+
+    // Glowing magma head
+    ctx.save();
+    ctx.translate(0, -this.height / 2 + 4);
+    ctx.fillStyle = '#ef4444';
+    ctx.shadowColor = '#f97316';
+    ctx.shadowBlur = 12;
+    ctx.beginPath();
+    ctx.arc(0, -12, 14, 0, Math.PI*2);
+    ctx.fill();
+
+    // Obsidian face shield plate
+    ctx.fillStyle = '#09090b';
+    ctx.fillRect(-8, -18, 16, 12);
+
+    // Red fire eyes
+    ctx.fillStyle = '#fde047';
+    ctx.fillRect(-5, -14, 2.5, 2);
+    ctx.fillRect(2.5, -14, 2.5, 2);
+    ctx.restore();
   }
 
   drawMammoth(ctx) {
-    // Snow tusker mammoth
-    ctx.fillStyle = '#cbd5e1'; // light frost fur
+    // Colossal Frost Mammoth
+    // Base layered blue-grey fur
+    let furGrad = ctx.createLinearGradient(0, -this.height/2, 0, this.height/2);
+    furGrad.addColorStop(0, '#cbd5e1');
+    furGrad.addColorStop(0.5, '#94a3b8');
+    furGrad.addColorStop(1, '#475569');
+    ctx.fillStyle = furGrad;
+    ctx.strokeStyle = '#38bdf8';
+    ctx.lineWidth = 2;
     ctx.beginPath();
     ctx.roundRect(-this.width / 2, -this.height / 2, this.width, this.height, 16);
     ctx.fill();
+    ctx.stroke();
 
-    // White Tusks
-    ctx.fillStyle = '#f8fafc';
+    // Fur ridges (lines)
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+    ctx.lineWidth = 1.5;
     ctx.beginPath();
-    ctx.moveTo(this.width / 2 - 4, 4);
-    ctx.quadraticCurveTo(this.width / 2 + 16, 12, this.width / 2 + 18, -4);
-    ctx.quadraticCurveTo(this.width / 2 + 8, 4, this.width / 2 - 4, 12);
+    ctx.moveTo(-25, 0); ctx.lineTo(-35, 12);
+    ctx.moveTo(-10, 8); ctx.lineTo(-20, 20);
+    ctx.moveTo(10, 8); ctx.lineTo(5, 20);
+    ctx.stroke();
+
+    // Massive ice crystal tusks (translucent cryo effect)
+    ctx.save();
+    let tuskGrad = ctx.createLinearGradient(this.width/2 - 4, 10, this.width/2 + 25, -10);
+    tuskGrad.addColorStop(0, 'rgba(6, 182, 212, 0.85)');
+    tuskGrad.addColorStop(0.5, 'rgba(34, 211, 238, 0.6)');
+    tuskGrad.addColorStop(1, 'rgba(255, 255, 255, 0.95)');
+    ctx.fillStyle = tuskGrad;
+    ctx.strokeStyle = '#e0f2fe';
+    ctx.lineWidth = 1.8;
+    ctx.shadowColor = '#06b6d4';
+    ctx.shadowBlur = 10;
+
+    // Right massive curved tusk
+    ctx.beginPath();
+    ctx.moveTo(this.width / 2 - 6, 2);
+    ctx.quadraticCurveTo(this.width / 2 + 22, 14, this.width / 2 + 24, -14);
+    ctx.quadraticCurveTo(this.width / 2 + 10, 4, this.width / 2 - 6, 14);
     ctx.closePath();
-    ctx.fill();
-
-    // Eyes
-    ctx.fillStyle = '#38bdf8';
-    ctx.fillRect(this.width / 2 - 16, -12, 4, 4);
-  }
-
-  drawVoidKing(ctx) {
-    // Shadow monarch vector details
-    ctx.fillStyle = '#1e1b4b'; // deep midnight indigo
-    ctx.strokeStyle = '#d946ef'; // glowing pink outline
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.roundRect(-this.width / 2, -this.height / 2, this.width, this.height, 12);
     ctx.fill();
     ctx.stroke();
 
-    // Crown
-    ctx.fillStyle = '#d946ef';
+    // Left minor tusk (slightly offset and layered behind)
+    ctx.translate(-this.width + 12, 0);
     ctx.beginPath();
-    ctx.moveTo(-16, -this.height/2);
-    ctx.lineTo(-12, -this.height/2 - 10);
-    ctx.lineTo(-4, -this.height/2 - 2);
-    ctx.lineTo(0, -this.height/2 - 14); // center peak
-    ctx.lineTo(4, -this.height/2 - 2);
-    ctx.lineTo(12, -this.height/2 - 10);
-    ctx.lineTo(16, -this.height/2);
+    ctx.moveTo(0, 2);
+    ctx.quadraticCurveTo(-22, 14, -24, -14);
+    ctx.quadraticCurveTo(-10, 4, 0, 14);
     ctx.closePath();
     ctx.fill();
+    ctx.stroke();
+    ctx.restore();
 
-    // Face glowing mask
-    ctx.fillStyle = '#000';
+    // Frost rune helm overlay on skull
+    ctx.fillStyle = '#1e293b';
     ctx.beginPath();
-    ctx.arc(0, -8, 8, 0, Math.PI*2);
+    ctx.roundRect(this.width / 2 - 22, -18, 14, 18, 2);
     ctx.fill();
 
-    // Cyber purple eyes
+    // Glowing cyan eye
+    ctx.fillStyle = '#06b6d4';
+    ctx.shadowColor = '#06b6d4';
+    ctx.shadowBlur = 8;
+    ctx.fillRect(this.width / 2 - 14, -10, 3.5, 3.5);
+  }
+
+  drawVoidKing(ctx) {
+    // Colossal Void King shadow monarch
+    // Ambient cosmic starfield cloak
+    ctx.fillStyle = '#090514'; // Midnight base
+    ctx.strokeStyle = '#d946ef'; // Magenta aura
+    ctx.lineWidth = 2.2;
+    ctx.save();
+    ctx.shadowColor = '#d946ef';
+    ctx.shadowBlur = 14;
+
+    // Cloak path
+    ctx.beginPath();
+    ctx.moveTo(-16, -this.height / 2);
+    ctx.lineTo(-24, this.height / 2 - 4);
+    ctx.lineTo(24, this.height / 2 - 4);
+    ctx.lineTo(16, -this.height / 2);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+
+    // Star texture in the cloak
+    ctx.fillStyle = '#ffffff';
+    for (let i = 0; i < 8; i++) {
+      const starX = -18 + Math.sin(this.game.levelTime * 0.001 + i) * 16;
+      const starY = -12 + (i * 6);
+      ctx.fillRect(starX, starY, 1, 1);
+    }
+    ctx.restore();
+
+    // Swirling black hole chest core
+    ctx.save();
+    const spin = this.game.levelTime * 0.01;
+    ctx.translate(0, -4);
+    ctx.rotate(spin);
+    
+    // Outer event horizon
+    ctx.fillStyle = 'rgba(217, 70, 239, 0.25)';
+    ctx.beginPath();
+    ctx.arc(0, 0, 15, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Core
+    ctx.fillStyle = '#020005';
+    ctx.strokeStyle = '#a855f7';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(0, 0, 10, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    ctx.restore();
+
+    // Crown of pink fire energy
+    ctx.save();
+    ctx.fillStyle = '#d946ef';
+    ctx.shadowColor = '#d946ef';
+    ctx.shadowBlur = 10;
+    ctx.beginPath();
+    ctx.moveTo(-12, -this.height / 2);
+    ctx.lineTo(-9, -this.height / 2 - 9);
+    ctx.lineTo(-3, -this.height / 2 - 2);
+    ctx.lineTo(0, -this.height / 2 - 13); // Center peak
+    ctx.lineTo(3, -this.height / 2 - 2);
+    ctx.lineTo(9, -this.height / 2 - 9);
+    ctx.lineTo(12, -this.height / 2);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+
+    // Faceless dark void mask
+    ctx.fillStyle = '#050508';
+    ctx.beginPath();
+    ctx.arc(0, -this.height/2 + 10, 7.5, 0, Math.PI*2);
+    ctx.fill();
+
+    // Eerie glowing eyes
     ctx.fillStyle = '#a855f7';
-    ctx.fillRect(-4, -9, 2, 2);
-    ctx.fillRect(2, -9, 2, 2);
+    ctx.fillRect(-3, -this.height/2 + 9, 1.8, 1.8);
+    ctx.fillRect(1.5, -this.height/2 + 9, 1.8, 1.8);
   }
 }

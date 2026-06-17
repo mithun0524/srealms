@@ -1,5 +1,11 @@
 # 🌌 Skybound Realms
 
+![Studio Banner](media/studio_banner.png)
+
+<p align="center">
+  <img src="media/brand_logo.png" alt="Skybound Realms Logo" width="220" style="border-radius: 50%; box-shadow: 0 0 24px rgba(34, 211, 238, 0.5);"/>
+</p>
+
 A high-fidelity 2D Side-Scrolling Platform Adventure game built with pure procedural technologies. It features aspect-locked responsive canvas scaling, dynamic asset-free graphics, synthesized soundtrack loops, 6 themed worlds, 4 playable character classes, and a customizable character marketplace.
 
 ---
@@ -24,18 +30,31 @@ A high-fidelity 2D Side-Scrolling Platform Adventure game built with pure proced
 
 ## 🕹️ Screenshots & Media
 
-### Dynamic Gameplay
-Explore multiple themed worlds featuring procedural block shaders, aurora effects, parallax backdrops, and massive celestial bodies.
-![Gameplay View](media/gameplay.png)
+### Title Screen & Realm Selection
+Navigate between worlds on the dynamic planetary sector map.
+![Title Screen](media/main_menu.png)
+![Level Selection Map](media/level_selection.png)
 
-### Playable Classes Selector
-Equip specialized classes to alter stats and unlock passive traits.
-![Classes Shop](media/classes_shop.png)
+### The Marketplace & Customizer Shop
+* **Weapons Shop**: Buy, equip, and preview glowing weapons.
+  ![Weapons Shop](media/weapons_shop.png)
+* **Classes Shop**: Compare class-specific base attributes and passive meters.
+  ![Classes Shop](media/classes_shop.png)
+* **Outfits Shop**: Browse custom explorer colors and chassis.
+  ![Outfits Shop](media/outfits_shop.png)
 
-### Customizer Preview & Poses
-Customize outfits in real-time, pick colors, test equipped accessories, and toggle poses (Jog, Breathe, and Slash) under holographic emulation.
-![Jog Pose](media/customizer_jog.png)
-![Slash Pose](media/customizer_slash.png)
+### Hologram Character Creator (Emulation Poses)
+Modify color dyes and toggle emulation poses to see character movements in real-time.
+* **Jog Pose**: Emulates walking/running animations in place.
+  ![Jog Pose](media/customizer_jog.png)
+* **Breathe Pose**: Slow-bobbing idle breathing animation.
+  ![Breathe Pose](media/customizer_breathe.png)
+* **Slash Pose**: Arm extended forward to showcase equipped weapons and slash highlights.
+  ![Slash Pose](media/customizer_slash.png)
+
+### In-Game Gameplay
+Run, double-jump, dash, and strike down enemies inside high-fidelity procedurally rendered stages.
+![Gameplay Action](media/gameplay.png)
 
 ---
 

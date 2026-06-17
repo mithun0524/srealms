@@ -150,7 +150,39 @@ export class Game {
 
   restartLevel() {
     this.changeState('playing');
-    this.loadLevel(this.currentWorldIndex, this.currentLevelIndex);
+    if (this.world && this.player) {
+      // Restore player health, active status, energy
+      this.player.health = this.player.maxHealth;
+      this.player.energy = this.player.maxEnergy;
+      this.player.active = true;
+      this.player.invulnTimer = 1500; // Brief invulnerability shield
+      this.player.vx = 0;
+      this.player.vy = 0;
+      
+      // Position player at checkpoint
+      this.player.x = this.world.latestCheckpoint.x;
+      this.player.y = this.world.latestCheckpoint.y;
+      
+      // Snap camera to target checkpoint immediately
+      this.camera.x = this.player.x + this.player.width / 2 - this.width / 2;
+      this.camera.y = this.player.y + this.player.height / 2 - this.height / 2;
+      
+      // Clear level projectiles to avoid immediate hazard damage
+      this.world.projectiles = [];
+      
+      // Reset active boss if present
+      if (this.activeBoss) {
+        this.activeBoss.health = this.activeBoss.maxHealth;
+        this.activeBoss.active = true;
+        this.activeBoss.dying = false;
+        this.activeBoss.phase = 1;
+        this.activeBoss.projectiles = [];
+      }
+      
+      this.ui.updateHUD();
+    } else {
+      this.loadLevel(this.currentWorldIndex, this.currentLevelIndex);
+    }
   }
 
   nextLevel() {

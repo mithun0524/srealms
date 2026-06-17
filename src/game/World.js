@@ -498,6 +498,11 @@ export class World {
     if (this.lavaLevel !== null && player.y + player.height > this.lavaLevel) {
       this.respawnPlayerAtCheckpoint();
     }
+
+    // Out of bounds check (falling off floating islands into space)
+    if (player.y > this.rows * this.tileSize + 64) {
+      this.respawnPlayerAtCheckpoint();
+    }
   }
 
   respawnPlayerAtCheckpoint() {

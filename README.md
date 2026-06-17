@@ -1,9 +1,9 @@
 # 🌌 Skybound Realms
 
-![Studio Banner](media/studio_banner.png)
+![Studio Banner](media/studio_banner_v2.png)
 
 <p align="center">
-  <img src="media/brand_logo.png" alt="Skybound Realms Logo" width="220" style="border-radius: 50%; box-shadow: 0 0 24px rgba(34, 211, 238, 0.5);"/>
+  <img src="media/brand_logo_v2.png" alt="Skybound Realms Logo" width="220" style="border-radius: 50%; box-shadow: 0 0 24px rgba(34, 211, 238, 0.5);"/>
 </p>
 
 A high-fidelity 2D Side-Scrolling Platform Adventure game built with pure procedural technologies. It features aspect-locked responsive canvas scaling, dynamic asset-free graphics, synthesized soundtrack loops, 6 themed worlds, 4 playable character classes, and a customizable character marketplace.

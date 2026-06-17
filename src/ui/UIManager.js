@@ -31,6 +31,8 @@ export class UIManager {
 
     // Shop active tab
     this.activeShopTab = 'skins';
+    this.trialHelmet = null;
+    this.trialArmor = null;
 
     this.initListeners();
     this.updateScreens();
@@ -106,6 +108,8 @@ export class UIManager {
         tabs.forEach(t => t.classList.remove('active'));
         e.target.classList.add('active');
         this.activeShopTab = e.target.getAttribute('data-tab');
+        this.trialHelmet = null;
+        this.trialArmor = null;
         this.populateShopGrid();
       });
     });
@@ -586,40 +590,64 @@ export class UIManager {
       el.className = 'part-item';
       
       const isOwned = save.unlockedHelmets.includes(item.id);
-      const isEquipped = save.equippedHelmet === item.id;
+      const isEquipped = save.equippedHelmet === item.id && !this.trialHelmet;
+      const isTrialing = this.trialHelmet === item.id;
 
       if (isEquipped) {
         el.classList.add('equipped');
+      } else if (isTrialing) {
+        el.classList.add('trial');
       } else if (isOwned) {
         el.classList.add('owned');
       } else {
         el.classList.add('locked');
       }
 
+      let statusText = 'Equip';
+      if (isEquipped) {
+        statusText = 'Equipped';
+      } else if (isTrialing) {
+        statusText = `Buy: ${item.cost}💎`;
+      } else if (isOwned) {
+        statusText = 'Equip';
+      } else {
+        statusText = `Try: ${item.cost}💎`;
+      }
+
       el.innerHTML = `
         <div class="part-name">${item.name}</div>
-        <div class="part-status">${isEquipped ? 'Equipped' : (isOwned ? 'Equip' : `${item.cost} Shards`)}</div>
+        <div class="part-status">${statusText}</div>
       `;
 
       el.addEventListener('click', () => {
         if (isEquipped) return;
+        
         if (isOwned) {
           save.equippedHelmet = item.id;
+          this.trialHelmet = null; // Clear trial if permanently equipped
           SaveSystem.save(save);
           this.game.audio.playSFX('victory_relic');
           this.populatePartsSelectors();
         } else {
-          // Buy
-          if (save.shards >= item.cost) {
-            save.shards -= item.cost;
-            save.unlockedHelmets.push(item.id);
-            save.equippedHelmet = item.id;
-            SaveSystem.save(save);
-            this.game.audio.playSFX('victory');
-            document.getElementById('shop-crystal-count').innerText = save.shards;
+          // If not trialing yet, click to try it on
+          if (!isTrialing) {
+            this.trialHelmet = item.id;
+            this.game.audio.playSFX('jump'); // soft selection feedback
             this.populatePartsSelectors();
           } else {
-            this.triggerToast("Not enough Crystal Shards!");
+            // Clicked again while trialing - attempt buy
+            if (save.shards >= item.cost) {
+              save.shards -= item.cost;
+              save.unlockedHelmets.push(item.id);
+              save.equippedHelmet = item.id;
+              this.trialHelmet = null; // Bought!
+              SaveSystem.save(save);
+              this.game.audio.playSFX('victory');
+              document.getElementById('shop-crystal-count').innerText = save.shards;
+              this.populatePartsSelectors();
+            } else {
+              this.triggerToast("Not enough Crystal Shards!");
+            }
           }
         }
       });
@@ -635,40 +663,64 @@ export class UIManager {
       el.className = 'part-item';
       
       const isOwned = save.unlockedArmors.includes(item.id);
-      const isEquipped = save.equippedArmor === item.id;
+      const isEquipped = save.equippedArmor === item.id && !this.trialArmor;
+      const isTrialing = this.trialArmor === item.id;
 
       if (isEquipped) {
         el.classList.add('equipped');
+      } else if (isTrialing) {
+        el.classList.add('trial');
       } else if (isOwned) {
         el.classList.add('owned');
       } else {
         el.classList.add('locked');
       }
 
+      let statusText = 'Equip';
+      if (isEquipped) {
+        statusText = 'Equipped';
+      } else if (isTrialing) {
+        statusText = `Buy: ${item.cost}💎`;
+      } else if (isOwned) {
+        statusText = 'Equip';
+      } else {
+        statusText = `Try: ${item.cost}💎`;
+      }
+
       el.innerHTML = `
         <div class="part-name">${item.name}</div>
-        <div class="part-status">${isEquipped ? 'Equipped' : (isOwned ? 'Equip' : `${item.cost} Shards`)}</div>
+        <div class="part-status">${statusText}</div>
       `;
 
       el.addEventListener('click', () => {
         if (isEquipped) return;
+        
         if (isOwned) {
           save.equippedArmor = item.id;
+          this.trialArmor = null; // Clear trial if permanently equipped
           SaveSystem.save(save);
           this.game.audio.playSFX('victory_relic');
           this.populatePartsSelectors();
         } else {
-          // Buy
-          if (save.shards >= item.cost) {
-            save.shards -= item.cost;
-            save.unlockedArmors.push(item.id);
-            save.equippedArmor = item.id;
-            SaveSystem.save(save);
-            this.game.audio.playSFX('victory');
-            document.getElementById('shop-crystal-count').innerText = save.shards;
+          // If not trialing yet, click to try it on
+          if (!isTrialing) {
+            this.trialArmor = item.id;
+            this.game.audio.playSFX('jump'); // soft selection feedback
             this.populatePartsSelectors();
           } else {
-            this.triggerToast("Not enough Crystal Shards!");
+            // Clicked again while trialing - attempt buy
+            if (save.shards >= item.cost) {
+              save.shards -= item.cost;
+              save.unlockedArmors.push(item.id);
+              save.equippedArmor = item.id;
+              this.trialArmor = null; // Bought!
+              SaveSystem.save(save);
+              this.game.audio.playSFX('victory');
+              document.getElementById('shop-crystal-count').innerText = save.shards;
+              this.populatePartsSelectors();
+            } else {
+              this.triggerToast("Not enough Crystal Shards!");
+            }
           }
         }
       });
@@ -685,9 +737,15 @@ export class UIManager {
 
     const ctx = canvas.getContext('2d');
     
+    // Create a mock clone of the saveData object to support dynamic trials
+    const mockSaveData = {
+      ...this.game.saveData,
+      customColors: { ...this.game.saveData.customColors }
+    };
+
     // Create a mock game context
     const mockGame = {
-      saveData: this.game.saveData,
+      saveData: mockSaveData,
       levelTime: 0,
       activeBoss: null,
       enemies: [],
@@ -714,6 +772,19 @@ export class UIManager {
       
       ctx.save();
       ctx.scale(scaleVal, scaleVal);
+
+      // Sync active trial styles or real equips to preview saveData
+      mockSaveData.equippedHelmet = this.trialHelmet || this.game.saveData.equippedHelmet;
+      mockSaveData.equippedArmor = this.trialArmor || this.game.saveData.equippedArmor;
+      mockSaveData.equippedSkin = this.game.saveData.equippedSkin;
+      mockSaveData.equippedCape = this.game.saveData.equippedCape;
+      mockSaveData.equippedTrail = this.game.saveData.equippedTrail;
+      mockSaveData.equippedPet = this.game.saveData.equippedPet;
+      mockSaveData.selectedClass = this.game.saveData.selectedClass;
+      mockSaveData.customColors.primary = this.game.saveData.customColors.primary;
+      mockSaveData.customColors.secondary = this.game.saveData.customColors.secondary;
+      mockSaveData.customColors.visor = this.game.saveData.customColors.visor;
+      mockSaveData.customColors.accent = this.game.saveData.customColors.accent;
 
       // Update variables
       previewPlayer.animTime += 16.67;

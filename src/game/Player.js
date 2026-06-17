@@ -640,16 +640,32 @@ export class Player {
     // 4. DRAW BODY (Cyber Torso Chassis)
     const armorStyle = this.game.saveData.equippedArmor || 'default';
     if (armorStyle === 'heavy_plate') {
-      // Bulky Heavy Armor
+      // Bulky Heavy Armor (Obsidian plates + Gold borders)
       ctx.fillStyle = primary;
       ctx.beginPath();
       ctx.roundRect(-9.5, -12, 19, 22, 6);
       ctx.fill();
+      ctx.strokeStyle = '#eab308'; // Luxury gold trim
+      ctx.lineWidth = 1;
+      ctx.stroke();
 
       ctx.fillStyle = secondary;
       ctx.beginPath();
       ctx.roundRect(-8, -10, 16, 17, 4);
       ctx.fill();
+
+      // Glowing heart core
+      ctx.fillStyle = visor;
+      ctx.shadowColor = visor;
+      ctx.shadowBlur = 8;
+      ctx.beginPath();
+      ctx.moveTo(0, -6);
+      ctx.lineTo(3.5, -2.5);
+      ctx.lineTo(0, 1);
+      ctx.lineTo(-3.5, -2.5);
+      ctx.closePath();
+      ctx.fill();
+      ctx.shadowBlur = 0;
 
       // Heavy rivets
       ctx.fillStyle = accent;
@@ -658,12 +674,29 @@ export class Player {
       ctx.fillRect(-6, 2, 2, 2);
       ctx.fillRect(4, 2, 2, 2);
 
-      // Huge shoulder pads
+      // Huge spiked shoulder pads
       ctx.fillStyle = '#475569';
       ctx.fillRect(-11.5, -11, 3.5, 6);
       ctx.fillRect(8, -11, 3.5, 6);
+      ctx.fillStyle = '#eab308'; // Gold spikes
+      ctx.beginPath();
+      ctx.moveTo(-11.5, -11); ctx.lineTo(-14.5, -14); ctx.lineTo(-9.5, -8); ctx.closePath();
+      ctx.moveTo(11.5, -11); ctx.lineTo(14.5, -14); ctx.lineTo(9.5, -8); ctx.closePath();
+      ctx.fill();
     } else if (armorStyle === 'energy_robes') {
-      // Flowing Wizard Robes
+      // Flowing Wizard Robes (with cosmic energy rings)
+      ctx.save();
+      // Glowing magical aura ring behind chest
+      ctx.strokeStyle = accent;
+      ctx.lineWidth = 0.8;
+      ctx.setLineDash([2, 2]);
+      ctx.shadowColor = accent;
+      ctx.shadowBlur = 6;
+      ctx.beginPath();
+      ctx.arc(0, -4, 11, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+
       ctx.fillStyle = primary;
       ctx.beginPath();
       ctx.roundRect(-8, -12, 16, 21, 4);
@@ -681,19 +714,22 @@ export class Player {
 
       // Glowing magical runes down center
       ctx.strokeStyle = accent;
-      ctx.lineWidth = 1;
+      ctx.lineWidth = 1.2;
+      ctx.shadowColor = accent;
+      ctx.shadowBlur = 4;
       ctx.beginPath();
       ctx.moveTo(0, -6); ctx.lineTo(0, 6);
-      ctx.moveTo(-3, -2); ctx.lineTo(3, -2);
+      ctx.moveTo(-3.5, -2); ctx.lineTo(3.5, -2);
       ctx.moveTo(-2, 2); ctx.lineTo(2, 2);
       ctx.stroke();
+      ctx.shadowBlur = 0;
 
-      // Minimal shoulder wraps
+      // Shoulder wraps
       ctx.fillStyle = primary;
       ctx.fillRect(-9, -11, 1.5, 4);
       ctx.fillRect(7.5, -11, 1.5, 4);
     } else if (armorStyle === 'hazard_gear') {
-      // Hazmat/Reformed Toxin Chassis
+      // Hazmat/Reformed Toxin Chassis (with glowing cables)
       ctx.fillStyle = primary;
       ctx.beginPath();
       ctx.roundRect(-8, -12, 16, 21, 5);
@@ -713,6 +749,16 @@ export class Player {
       ctx.roundRect(-6.5, -10, 13, 8, 2);
       ctx.fill();
 
+      // Glowing toxic tubes from filter to shoulder
+      ctx.strokeStyle = '#10b981'; // radioactive green glow
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      ctx.moveTo(-3, 3);
+      ctx.bezierCurveTo(-7, 3, -7, -6, -9.5, -6);
+      ctx.moveTo(3, 3);
+      ctx.bezierCurveTo(7, 3, 7, -6, 9.5, -6);
+      ctx.stroke();
+
       // Circular Respirator filter on center chest
       ctx.fillStyle = '#475569';
       ctx.beginPath();
@@ -720,16 +766,19 @@ export class Player {
       ctx.fill();
       // visor color glow core
       ctx.fillStyle = visor;
+      ctx.shadowColor = visor;
+      ctx.shadowBlur = 6;
       ctx.beginPath();
       ctx.arc(0, 3, 2, 0, Math.PI*2);
       ctx.fill();
+      ctx.shadowBlur = 0;
 
       // Shoulder pads
       ctx.fillStyle = '#64748b';
       ctx.fillRect(-9.5, -11, 2, 4.5);
       ctx.fillRect(7.5, -11, 2, 4.5);
     } else {
-      // Default Explorer Chassis
+      // Default Explorer Chassis (with golden neon trims)
       ctx.fillStyle = primary;
       ctx.beginPath();
       ctx.roundRect(-8, -12, 16, 21, 5);
@@ -742,11 +791,14 @@ export class Player {
 
       // Torso glowing diagonal neon lines
       ctx.strokeStyle = this.powerups.has('fire') ? '#fbbf24' : accent;
-      ctx.lineWidth = 1;
+      ctx.lineWidth = 1.2;
+      ctx.shadowColor = ctx.strokeStyle;
+      ctx.shadowBlur = 4;
       ctx.beginPath();
       ctx.moveTo(-4, -6); ctx.lineTo(4, -2);
       ctx.moveTo(-4, -2); ctx.lineTo(4, 2);
       ctx.stroke();
+      ctx.shadowBlur = 0;
 
       // Runic explore crest detail
       ctx.fillStyle = '#ffffff';
@@ -767,7 +819,7 @@ export class Player {
     // 5. DRAW HELMET (Explorer Head Gear)
     const helmetStyle = this.game.saveData.equippedHelmet || 'default';
     if (helmetStyle === 'scanning_visor') {
-      // Angular Cylindrical Helm
+      // Angular Cylindrical Helm with HUD telemetry overlay
       ctx.fillStyle = primary;
       ctx.beginPath();
       ctx.roundRect(-8.5, -28, 17, 14, 2);
@@ -790,17 +842,39 @@ export class Player {
       ctx.moveTo(sweepX, -24);
       ctx.lineTo(sweepX, -17);
       ctx.stroke();
+
+      // Floating holographic HUD indicator ring (Luxury Sci-fi overlay!)
+      ctx.strokeStyle = visor;
+      ctx.lineWidth = 0.6;
+      ctx.beginPath();
+      ctx.arc(8 * facingMult, -20.5, 3, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(7.5 * facingMult, -21, 1, 1);
     } else if (helmetStyle === 'goggle_visor') {
-      // Goggle Visor Dome
+      // Goggle Visor Dome with Gold rims
       ctx.fillStyle = primary;
       ctx.beginPath();
       ctx.arc(0, -19.5, 8.5, 0, Math.PI * 2);
       ctx.fill();
 
-      // Goggles
+      // Goggles strap
+      ctx.fillStyle = '#0f172a';
+      ctx.fillRect(-9.5, -21.5, 19, 3);
+
+      // Goggles base
       ctx.fillStyle = '#09090b';
       ctx.fillRect(-6.5, -23, 13, 6);
 
+      // Gold Outer Rims
+      ctx.strokeStyle = '#eab308';
+      ctx.lineWidth = 0.8;
+      ctx.beginPath();
+      ctx.arc(-3 * facingMult, -20, 3, 0, Math.PI * 2);
+      ctx.arc(3.5 * facingMult, -20, 3, 0, Math.PI * 2);
+      ctx.stroke();
+
+      // Glowing lens cores
       ctx.fillStyle = visor;
       ctx.shadowColor = visor;
       ctx.shadowBlur = 8;
@@ -810,7 +884,7 @@ export class Player {
       ctx.fill();
       ctx.shadowBlur = 0;
     } else if (helmetStyle === 'cyber_mask') {
-      // Angular Plate Mask
+      // Angular Plate Mask with ear fins & warning LED
       ctx.fillStyle = primary;
       ctx.beginPath();
       ctx.moveTo(-8.5, -14);
@@ -833,15 +907,28 @@ export class Player {
       ctx.fill();
       ctx.shadowBlur = 0;
 
+      // Ear Fins
+      ctx.fillStyle = secondary;
+      ctx.beginPath();
+      ctx.moveTo(-8.5, -20); ctx.lineTo(-13, -24); ctx.lineTo(-8.5, -17); ctx.closePath();
+      ctx.moveTo(8.5, -20); ctx.lineTo(13, -24); ctx.lineTo(8.5, -17); ctx.closePath();
+      ctx.fill();
+
       // Accented lower grill
       ctx.strokeStyle = accent;
-      ctx.lineWidth = 1;
+      ctx.lineWidth = 1.2;
       ctx.beginPath();
       ctx.moveTo(-4, -15); ctx.lineTo(-2, -17);
       ctx.moveTo(4, -15); ctx.lineTo(2, -17);
       ctx.stroke();
+
+      // Blinking warning indicator LED
+      ctx.fillStyle = '#ef4444';
+      ctx.beginPath();
+      ctx.arc(-5 * facingMult, -14.5, 0.9, 0, Math.PI*2);
+      ctx.fill();
     } else if (helmetStyle === 'horned_helm') {
-      // Default dome base
+      // Horned Dragon Helm with Golden crown circlet
       ctx.fillStyle = primary;
       ctx.beginPath();
       ctx.arc(0, -19.5, 8.5, 0, Math.PI * 2);
@@ -851,6 +938,14 @@ export class Player {
       ctx.fillStyle = '#1e293b';
       ctx.fillRect(-9.5, -22, 2, 5);
       ctx.fillRect(7.5, -22, 2, 5);
+
+      // Golden Crown Circlet
+      ctx.strokeStyle = '#eab308';
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      ctx.moveTo(-8.5, -22);
+      ctx.quadraticCurveTo(0, -25, 8.5, -22);
+      ctx.stroke();
 
       // Curved Horns (using accent highlight color)
       ctx.fillStyle = '#eab308'; // Gold horn base
@@ -867,6 +962,13 @@ export class Player {
       ctx.quadraticCurveTo(14, -34, 15, -30);
       ctx.quadraticCurveTo(10, -28, 5, -25);
       ctx.closePath();
+      ctx.fill();
+
+      // Horn glowing energy highlights
+      ctx.fillStyle = visor;
+      ctx.beginPath();
+      ctx.arc(-12, -30, 1, 0, Math.PI * 2);
+      ctx.arc(12, -30, 1, 0, Math.PI * 2);
       ctx.fill();
 
       // Glowing visor with scan lines

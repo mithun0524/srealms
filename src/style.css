@@ -1224,6 +1224,18 @@ body.touch-device .mobile-controls {
   font-weight: 600;
 }
 
+.part-item.trial {
+  border-color: var(--accent-cyan);
+  background: rgba(34, 211, 238, 0.08);
+  box-shadow: 0 0 10px rgba(34, 211, 238, 0.2);
+  border-style: dashed;
+}
+
+.part-item.trial .part-status {
+  color: var(--accent-cyan);
+  font-weight: 700;
+}
+
 .part-name {
   font-size: 0.8rem;
   font-weight: 600;

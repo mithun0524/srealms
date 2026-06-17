@@ -696,10 +696,10 @@ export class UIManager {
       ui: { updateHUD: () => {}, updateHUDEnergy: () => {} }
     };
     
-    // Position player centered in preview area
-    // Center is (width/2, height/2), but player drawing translate adds width/2, height/2.
-    // So if player is size 24x38, let's set x = canvas.width / 2 - 12, y = canvas.height / 2 - 10
-    const previewPlayer = new Player(mockGame, canvas.width / 2 - 12, canvas.height / 2 - 10);
+    // With 2.5x scale, logical canvas size is 64x80
+    // Centered coordinates: x = 32 - 12 = 20, y = 40 - 19 + 6 = 27
+    const scaleVal = 2.5;
+    const previewPlayer = new Player(mockGame, 20, 27);
     previewPlayer.history = [];
     for (let i = 0; i < 8; i++) {
       previewPlayer.history.push({ x: previewPlayer.x, y: previewPlayer.y });
@@ -712,6 +712,9 @@ export class UIManager {
 
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       
+      ctx.save();
+      ctx.scale(scaleVal, scaleVal);
+
       // Update variables
       previewPlayer.animTime += 16.67;
       previewPlayer.runCycle += 0.04;
@@ -729,6 +732,8 @@ export class UIManager {
 
       // Draw
       previewPlayer.draw(ctx);
+
+      ctx.restore();
 
       this.creatorPreviewAnimFrame = requestAnimationFrame(loop);
     };

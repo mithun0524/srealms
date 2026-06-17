@@ -1,0 +1,260 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="stylesheet" href="/src/style.css" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>Skybound Realms | 2D Platformer</title>
+  </head>
+  <body>
+    <div id="app">
+      <!-- Game Canvas -->
+      <canvas id="game-canvas"></canvas>
+
+      <!-- IN-GAME HUD OVERLAY -->
+      <div id="hud-overlay">
+        <!-- Top Left: Health & Energy -->
+        <div class="hud-top-left">
+          <div class="health-container" id="hud-health">
+            <div class="heart-seed" id="heart-1"></div>
+            <div class="heart-seed" id="heart-2"></div>
+            <div class="heart-seed" id="heart-3"></div>
+          </div>
+          <div class="hud-bar-wrapper">
+            <div class="hud-energy-bar" id="hud-energy" style="width: 100%;"></div>
+          </div>
+        </div>
+
+        <!-- Top Right: Collectibles & Key status -->
+        <div class="hud-top-right">
+          <div class="hud-item shards">
+            <span class="shard-icon"></span>
+            <span id="hud-shards-count">0</span>
+          </div>
+          <div class="hud-item relics" title="Ancient Relics">
+            <span class="relic-outline" id="hud-relic-1"></span>
+            <span class="relic-outline" id="hud-relic-2"></span>
+            <span class="relic-outline" id="hud-relic-3"></span>
+          </div>
+          <div class="hud-item keys" title="Realm Key">
+            <span class="key-outline" id="hud-key"></span>
+          </div>
+        </div>
+
+        <!-- Timer -->
+        <div class="hud-timer" id="hud-timer">00:00</div>
+
+        <!-- Active Ability Indicators (Bottom Left) -->
+        <div class="ability-indicators" id="hud-abilities">
+          <div class="ability-icon" id="hud-ability-dash" title="Dash (Shift)">D</div>
+          <div class="ability-icon" id="hud-ability-doublejump" title="Double Jump (Space)">2J</div>
+          <div class="ability-icon" id="hud-ability-glide" title="Glide (Hold Space)">G</div>
+          <div class="ability-icon" id="hud-ability-pound" title="Ground Pound (S)">GP</div>
+          <div class="ability-icon" id="hud-ability-airdash" title="Air Dash (Midair Shift)">AD</div>
+        </div>
+      </div>
+
+      <!-- MOBILE VIRTUAL CONTROLS -->
+      <div class="mobile-controls" id="mobile-controls">
+        <div class="joystick-area">
+          <button class="touch-btn" id="ctrl-left">←</button>
+          <button class="touch-btn" id="ctrl-right">→</button>
+          <button class="touch-btn" id="ctrl-down">↓</button>
+        </div>
+        <div class="action-buttons">
+          <button class="touch-btn" id="ctrl-dash">D</button>
+          <button class="touch-btn" id="ctrl-jump">↑</button>
+        </div>
+      </div>
+
+      <!-- TITLE SCREEN -->
+      <div class="screen active" id="title-screen">
+        <div class="logo-container">
+          <h1 class="title-gradient">Skybound<br>Realms</h1>
+          <p>Restoration of Crystals</p>
+        </div>
+        <div class="menu-options">
+          <button class="btn-premium" id="btn-play">
+            <span>Play Game</span>
+          </button>
+          <button class="btn-premium btn-secondary" id="btn-shop">
+            <span>Skyrunner Shop</span>
+          </button>
+          <button class="btn-premium btn-secondary" id="btn-achievements">
+            <span>Achievements</span>
+          </button>
+          <button class="btn-premium btn-secondary" id="btn-settings">
+            <span>Settings</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- LEVEL SELECT SCREEN -->
+      <div class="screen" id="level-select-screen">
+        <div class="screen-header">
+          <button class="btn-premium btn-secondary" id="btn-level-back">← Back</button>
+          <h2 class="title-gradient">Select Realm</h2>
+          <div class="currency-indicator">
+            <span class="shard-icon"></span>
+            <span id="level-crystal-count">0</span>
+          </div>
+        </div>
+        <div class="map-container" id="realms-map-container">
+          <!-- Dynamically populated via UIManager.js -->
+        </div>
+      </div>
+
+      <!-- SHOP SCREEN -->
+      <div class="screen" id="shop-screen">
+        <div class="screen-header">
+          <button class="btn-premium btn-secondary" id="btn-shop-back">← Back</button>
+          <h2 class="title-gradient">Skyrunner Shop</h2>
+          <div class="currency-indicator">
+            <span class="shard-icon"></span>
+            <span id="shop-crystal-count">0</span>
+          </div>
+        </div>
+        <div class="shop-tabs">
+          <div class="shop-tab active" data-tab="skins">Outfits</div>
+          <div class="shop-tab" data-tab="capes">Capes</div>
+          <div class="shop-tab" data-tab="trails">Trails</div>
+          <div class="shop-tab" data-tab="pets">Pets</div>
+        </div>
+        <div class="shop-grid" id="shop-items-grid">
+          <!-- Dynamically populated via UIManager.js -->
+        </div>
+      </div>
+
+      <!-- ACHIEVEMENTS SCREEN -->
+      <div class="screen" id="achievements-screen">
+        <div class="screen-header">
+          <button class="btn-premium btn-secondary" id="btn-achievements-back">← Back</button>
+          <h2 class="title-gradient">Achievements</h2>
+          <div style="width: 80px;"></div> <!-- Spacer -->
+        </div>
+        <div class="achievements-container" id="achievements-list">
+          <!-- Dynamically populated via UIManager.js -->
+        </div>
+      </div>
+
+      <!-- PAUSE OVERLAY -->
+      <div class="screen overlay-screen" id="pause-screen">
+        <div class="glass-panel glow-purple panel-container">
+          <h2 class="panel-title title-gradient">Game Paused</h2>
+          <div class="menu-options" style="width: 100%;">
+            <button class="btn-premium" id="btn-resume">Resume</button>
+            <button class="btn-premium btn-secondary" id="btn-restart">Restart Level</button>
+            <button class="btn-premium btn-secondary" id="btn-pause-settings">Settings</button>
+            <button class="btn-premium btn-secondary" id="btn-quit" style="border-color: rgba(239, 68, 68, 0.2);">Quit to Map</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- SETTINGS OVERLAY -->
+      <div class="screen overlay-screen" id="settings-screen">
+        <div class="glass-panel panel-container" style="width: 420px;">
+          <h2 class="panel-title title-gradient">Settings</h2>
+          <div class="settings-list">
+            <!-- Audio Rows -->
+            <div class="setting-row">
+              <div class="setting-label">
+                <span>Music Volume</span>
+                <span id="music-volume-val">70%</span>
+              </div>
+              <div class="setting-control">
+                <input type="range" id="slider-music" min="0" max="100" value="70">
+              </div>
+            </div>
+            <div class="setting-row">
+              <div class="setting-label">
+                <span>Sound Effects</span>
+                <span id="sfx-volume-val">80%</span>
+              </div>
+              <div class="setting-control">
+                <input type="range" id="slider-sfx" min="0" max="100" value="80">
+              </div>
+            </div>
+            <!-- Keybinds info -->
+            <div class="setting-row">
+              <span class="setting-label" style="margin-bottom: 4px;">Keyboard Controls</span>
+              <div class="keybinds-grid">
+                <div class="keybind-item"><span>Move Left</span><span class="keybind-key">A / ←</span></div>
+                <div class="keybind-item"><span>Move Right</span><span class="keybind-key">D / →</span></div>
+                <div class="keybind-item"><span>Jump / Glide</span><span class="keybind-key">W / Space</span></div>
+                <div class="keybind-item"><span>Dash / AirDash</span><span class="keybind-key">Shift</span></div>
+                <div class="keybind-item"><span>Ground Pound</span><span class="keybind-key">S / ↓</span></div>
+                <div class="keybind-item"><span>Interact</span><span class="keybind-key">E</span></div>
+              </div>
+            </div>
+          </div>
+          <button class="btn-premium" id="btn-settings-back" style="width: 100%;">Save & Close</button>
+        </div>
+      </div>
+
+      <!-- GAME OVER SCREEN -->
+      <div class="screen overlay-screen" id="game-over-screen">
+        <div class="glass-panel glow-purple panel-container" style="border-color: rgba(239, 68, 68, 0.4);">
+          <h2 class="panel-title title-gradient" style="background: linear-gradient(135deg, #fff, #ef4444);">Defeated</h2>
+          <p style="text-align: center; color: var(--text-secondary); margin-top: -12px;">Your light faded in the darkness...</p>
+          <div class="stats-grid">
+            <div class="stat-box">
+              <span class="stat-label">Shards Saved</span>
+              <span class="stat-value" id="go-shards">0</span>
+            </div>
+            <div class="stat-box">
+              <span class="stat-label">Relics Found</span>
+              <span class="stat-value" id="go-relics">0/3</span>
+            </div>
+          </div>
+          <div class="menu-options" style="width: 100%;">
+            <button class="btn-premium" id="btn-go-retry" style="background: linear-gradient(135deg, rgba(239, 68, 68, 0.3), rgba(249, 115, 22, 0.3));">Try Again</button>
+            <button class="btn-premium btn-secondary" id="btn-go-map">Quit to Map</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- VICTORY SCREEN -->
+      <div class="screen overlay-screen" id="victory-screen">
+        <div class="glass-panel glow-purple panel-container" style="width: 440px; border-color: rgba(234, 179, 8, 0.4);">
+          <h2 class="panel-title title-gradient" style="background: linear-gradient(135deg, #fff, var(--accent-gold));">Realm Restored!</h2>
+          
+          <div style="display: flex; justify-content: center; margin: 8px 0;">
+            <div class="grade-badge" id="vic-grade">S</div>
+          </div>
+
+          <!-- Unlocked ability container -->
+          <div id="vic-unlock-container" style="display: none; background: rgba(168, 85, 247, 0.1); border: 1.5px solid var(--accent-purple); padding: 12px; border-radius: 12px; text-align: center; margin-bottom: 12px;">
+            <div style="font-size: 0.8rem; text-transform: uppercase; color: var(--accent-purple); font-weight: bold; letter-spacing: 0.05em;">New Ability Unlocked!</div>
+            <div id="vic-unlock-name" style="font-size: 1.25rem; font-weight: bold; font-family: var(--font-display); margin-top: 2px;">Double Jump</div>
+          </div>
+
+          <div class="stats-grid">
+            <div class="stat-box">
+              <span class="stat-label">Shards Collected</span>
+              <span class="stat-value" id="vic-shards">0/0</span>
+            </div>
+            <div class="stat-box">
+              <span class="stat-label">Relics Restored</span>
+              <span class="stat-value" id="vic-relics">0/3</span>
+            </div>
+            <div class="stat-box">
+              <span class="stat-label">Time Taken</span>
+              <span class="stat-value" id="vic-time">00:00</span>
+            </div>
+            <div class="stat-box">
+              <span class="stat-label">Shard Bonus</span>
+              <span class="stat-value" style="color: var(--accent-gold);" id="vic-bonus">+50</span>
+            </div>
+          </div>
+          <div class="menu-options" style="width: 100%;">
+            <button class="btn-premium" id="btn-vic-next" style="background: linear-gradient(135deg, rgba(16, 185, 129, 0.3), rgba(6, 182, 212, 0.3));">Next Realm</button>
+            <button class="btn-premium btn-secondary" id="btn-vic-map">Select Level</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

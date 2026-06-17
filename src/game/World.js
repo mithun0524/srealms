@@ -55,6 +55,25 @@ export class World {
       }
     }
 
+    // Helper random interval generator — defined FIRST before use
+    this.randomInterval = (min, max) => Math.random() * (max - min) + min;
+
+    // Ragebait surprise timers
+    this.spikeTimer = this.randomInterval(3000, 7000);
+    this.spikeDuration = 1200; // ms the spike stays
+    this.activeSpikes = [];
+    this.swarmTimer = this.randomInterval(12000, 18000);
+    this.floorTrapTimer = this.randomInterval(8000, 14000);
+    this.activeFloorTraps = [];
+    this.hiddenPlatforms = [];
+    this.platformTriggers = [];
+
+    // Crumble platforms (fake solid)
+    this.crumblePlatforms = [];
+
+    // Boss intro state (shown on boss level entry)
+    this.bossIntroShown = false;
+
     this.generateLayout();
   }
 
@@ -140,10 +159,8 @@ export class World {
     this.checkpoints.push({ x: 32 * 32, y: 350, active: false });
     this.checkpoints.push({ x: 65 * 32, y: 350, active: false });
 
-    // Place ending portal
-    const exitCol = this.cols - 6;
-    this.items.push({ type: 'portal', x: exitCol * 32, y: (this.rows - 5) * 32, width: 32, height: 64 });
     // Block portal wall
+    const exitCol = this.cols - 6;
     for (let r = 0; r < this.rows - 2; r++) {
       this.setTile(this.cols - 3, r, 1);
     }
@@ -161,124 +178,556 @@ export class World {
   }
 
   applyWorldThemeMechanics() {
-    // Place stairs, floating step blocks, items, hazards, and mechanical nodes
-    // Let's place platforms and collectibles
-    
-    // Helper to draw floating platforms
-    const drawPlatform = (startCol, row, length, tileVal = 1) => {
-      for (let c = 0; c < length; c++) {
-        this.setTile(startCol + c, row, tileVal);
+    // --- SHARED HELPERS ---
+    const T = this.worldIndex === 5 ? 11 : 1; // ice tile in world 5
+    const R = this.rows;
+
+    const plat = (c, r, len, tile = T) => {
+      for (let i = 0; i < len; i++) this.setTile(c + i, r, tile);
+    };
+    const crystals = (c, r, n) => {
+      for (let i = 0; i < n; i++) {
+        this.items.push({ type: 'crystal', x: (c+i)*32+8, y: r*32-24, width:16, height:16, collected:false });
       }
     };
-
-    // Helper to distribute crystal shards
-    const distributeCrystals = (startCol, row, count) => {
-      for (let i = 0; i < count; i++) {
-        this.items.push({
-          type: 'crystal',
-          x: (startCol + i) * 32 + 8,
-          y: row * 32 - 24,
-          width: 16,
-          height: 16,
-          collected: false
-        });
-      }
+    const spike = (c, r) => this.setTile(c, r, 2);
+    const bounce = (c, r) => this.setTile(c, r, 3);
+    const relic = (c, r, idx) => this.items.push({ type:'relic', relicIdx:idx, x:c*32+6, y:r*32-20, width:20, height:20, collected:false });
+    const key = (c, r) => this.items.push({ type:'key', x:c*32+8, y:r*32-24, width:16, height:24, collected:false });
+    const seed = (c, r) => this.items.push({ type:'seed', x:c*32+8, y:r*32-16, width:16, height:16, collected:false });
+    const pups = ['wind','thunder','shield','time','fire'];
+    const powerup = (c, r) => this.items.push({ type:'powerup', powerupType: pups[(this.worldIndex+this.levelIndex)%pups.length], x:c*32+6, y:r*32-20, width:20, height:20, collected:false });
+    const portal = (c, r) => this.items.push({ type:'portal', x:c*32, y:r*32-64, width:32, height:64, collected:false });
+    const movH = (c, r, len, rangeC, speed) => {
+      const sx = c*32, ex = (c+rangeC)*32, sy = r*32;
+      this.movingPlatforms.push({ startX:sx, startY:sy, endX:ex, endY:sy, x:sx, y:sy, width:len*32, height:12, speed, dir:1 });
+    };
+    const movV = (c, r1, r2, len, speed) => {
+      const sx = c*32, sy = r1*32, ey = r2*32;
+      this.movingPlatforms.push({ startX:sx, startY:sy, endX:sx, endY:ey, x:sx, y:sy, width:len*32, height:12, speed, dir:1 });
+    };
+    const crumble = (c, r, len) => {
+      plat(c, r, len, T);
+      this.crumblePlatforms.push({ startCol:c, row:r, len, health:1800, crumbling:false, collapsed:false });
     };
 
-    // 1. Platforms
-    drawPlatform(8, this.rows - 5, 4);
-    distributeCrystals(9, this.rows - 5, 2);
-
-    drawPlatform(21, this.rows - 6, 3);
-    distributeCrystals(21, this.rows - 6, 3);
-
-    // World specific platform modifications
-    const tileType = this.worldIndex === 5 ? 11 : 1; // Ice blocks if World 5
-
-    // Pit bridging platforms
-    drawPlatform(14, this.rows - 4, 1, tileType);
-    drawPlatform(19, this.rows - 5, 1, tileType);
-
-    // Mid area structures
-    drawPlatform(30, this.rows - 4, 3, tileType);
-    drawPlatform(33, this.rows - 6, 2, tileType);
-    drawPlatform(42, this.rows - 5, 4, tileType);
-    distributeCrystals(43, this.rows - 5, 2);
-
-    // Large floating peak section for Wind/Peak World
-    if (this.worldIndex === 3) {
-      // Very high floating platforms
-      drawPlatform(48, this.rows - 8, 3);
-      drawPlatform(53, this.rows - 10, 4);
-      distributeCrystals(54, this.rows - 10, 2);
+    // --- DISPATCH PER WORLD ---
+    switch(this.worldIndex) {
+      case 1: this._layoutMeadows(plat, crystals, spike, bounce, relic, key, seed, powerup, portal, movH, movV, crumble, R, T); break;
+      case 2: this._layoutCaverns(plat, crystals, spike, bounce, relic, key, seed, powerup, portal, movH, movV, crumble, R, T); break;
+      case 3: this._layoutPeaks(plat, crystals, spike, bounce, relic, key, seed, powerup, portal, movH, movV, crumble, R, T); break;
+      case 4: this._layoutVolcano(plat, crystals, spike, bounce, relic, key, seed, powerup, portal, movH, movV, crumble, R, T); break;
+      case 5: this._layoutExpanse(plat, crystals, spike, bounce, relic, key, seed, powerup, portal, movH, movV, crumble, R, T); break;
+      case 6: this._layoutShadow(plat, crystals, spike, bounce, relic, key, seed, powerup, portal, movH, movV, crumble, R, T); break;
+      default: this._layoutMeadows(plat, crystals, spike, bounce, relic, key, seed, powerup, portal, movH, movV, crumble, R, T);
     }
-
-    // Slippery run in World 5
-    if (this.worldIndex === 5) {
-      drawPlatform(60, this.rows - 5, 6, 11);
-    } else {
-      drawPlatform(60, this.rows - 5, 5);
-    }
-
-    // Moving platforms
-    this.movingPlatforms.push({
-      startX: 49 * 32,
-      startY: (this.rows - 5) * 32,
-      endX: 53 * 32,
-      endY: (this.rows - 5) * 32,
-      x: 49 * 32,
-      y: (this.rows - 5) * 32,
-      width: 48,
-      height: 12,
-      speed: 1.2,
-      dir: 1
-    });
-
-    this.movingPlatforms.push({
-      startX: 82 * 32,
-      startY: (this.rows - 5) * 32,
-      endX: 82 * 32,
-      endY: (this.rows - 9) * 32,
-      x: 82 * 32,
-      y: (this.rows - 5) * 32,
-      width: 48,
-      height: 12,
-      speed: 1.0,
-      dir: 1
-    });
-
-    // Bounce flower (World 1 specific or general helper)
-    // Represented in grid as Tile 3
-    this.setTile(28, this.rows - 3, 3); // Bounce flower on floor
-    this.setTile(71, this.rows - 3, 3);
-
-    // Hidden breakable wall or secret room
-    // Let's place Ancient Relics (3 per level)
-    this.items.push({ type: 'relic', relicIdx: 1, x: 22 * 32, y: (this.rows - 10) * 32, width: 20, height: 20 });
-    this.items.push({ type: 'relic', relicIdx: 2, x: 55 * 32, y: (this.rows - 13) * 32, width: 20, height: 20 });
-    this.items.push({ type: 'relic', relicIdx: 3, x: 86 * 32, y: (this.rows - 7) * 32, width: 20, height: 20 });
-
-    // Place Realm Key (1 per level required for portal)
-    this.items.push({ type: 'key', x: 44 * 32, y: (this.rows - 8) * 32, width: 16, height: 24 });
-
-    // Health Seeds (increases health)
-    this.items.push({ type: 'seed', x: 62 * 32, y: (this.rows - 7) * 32, width: 16, height: 16 });
-
-    // Power-Ups distribution
-    const powerUpsList = ['wind', 'thunder', 'shield', 'time', 'fire'];
-    const selectedPowerUp = powerUpsList[(this.worldIndex + this.levelIndex) % powerUpsList.length];
-    
-    // Spawn powerup item (e.g. glowing bubble)
-    this.items.push({
-      type: 'powerup',
-      powerupType: selectedPowerUp,
-      x: 31 * 32 + 8,
-      y: (this.rows - 7) * 32,
-      width: 20,
-      height: 20,
-      bobOffset: 0
-    });
   }
+
+  // ============================================================
+  // WORLD 1 — EMERALD MEADOWS (Bright, gentle hills. Pits + bounce flowers)
+  // ============================================================
+  _layoutMeadows(plat, crystals, spike, bounce, relic, key, seed, powerup, portal, movH, movV, crumble, R, T) {
+    const L = this.levelIndex;
+    if (L === 1) {
+      // Tutorial: wide platforms, friendly gaps
+      plat(7, R-5, 5); crystals(8, R-5, 3);
+      bounce(14, R-3);
+      plat(16, R-7, 4); crystals(17, R-7, 2);
+      plat(22, R-5, 3);
+      movH(27, R-6, 2, 3, 1.0);
+      plat(32, R-4, 4); crystals(33, R-4, 2);
+      bounce(38, R-3);
+      plat(41, R-6, 3); relic(42, R-6, 1);
+      plat(47, R-5, 4); crystals(48, R-5, 2);
+      movH(52, R-5, 2, 4, 1.2);
+      plat(58, R-4, 5); key(60, R-5);
+      plat(64, R-6, 3); relic(65, R-6, 2); seed(66, R-6);
+      plat(70, R-5, 3); crystals(71, R-5, 2);
+      movV(75, R-5, R-8, 2, 0.9);
+      plat(79, R-7, 4); relic(81, R-7, 3);
+      powerup(85, R-5); seed(90, R-4);
+      for(let c of [15,36,59,93]) spike(c, R-2);
+      portal(98, R-5);
+    } else if (L === 2) {
+      // Windmill Ridge: staircase pattern, trickier gaps
+      plat(6, R-5, 3); crystals(7, R-5, 2);
+      spike(10, R-2); spike(11, R-2);
+      plat(12, R-6, 2);
+      plat(15, R-8, 3); crystals(16, R-8, 2); bounce(18, R-9);
+      plat(20, R-5, 2);
+      spike(23, R-2); spike(24, R-2); spike(25, R-2);
+      plat(27, R-7, 3); relic(28, R-7, 1);
+      movH(32, R-5, 2, 5, 1.5);
+      plat(39, R-9, 4); key(41, R-9); crystals(39, R-9, 2);
+      spike(44, R-2); spike(45, R-2); spike(46, R-2); spike(47, R-2);
+      plat(48, R-6, 3); relic(49, R-6, 2);
+      bounce(53, R-3);
+      plat(56, R-8, 4); crystals(57, R-8, 2);
+      movH(62, R-5, 2, 3, 1.8);
+      plat(67, R-6, 3); seed(68, R-6);
+      spike(71, R-2); spike(72, R-2);
+      plat(74, R-7, 4); relic(75, R-7, 3); crystals(74, R-7, 2);
+      powerup(80, R-6);
+      plat(84, R-5, 5); crystals(85, R-5, 3);
+      for(let c of [88,89]) spike(c, R-2);
+      portal(95, R-5);
+    } else if (L === 3) {
+      // Blossom Valley: vertical challenge, precision
+      plat(5, R-5, 3); crystals(6, R-5, 2);
+      spike(9, R-2); spike(10, R-2); spike(11, R-2); spike(12, R-2);
+      plat(13, R-8, 3);
+      bounce(17, R-3); bounce(18, R-3);
+      plat(20, R-11, 3); crystals(21, R-11, 2); relic(22, R-11, 1);
+      spike(24, R-2); spike(25, R-2); spike(26, R-2); spike(27, R-2); spike(28, R-2);
+      movV(29, R-4, R-9, 2, 1.2);
+      plat(33, R-6, 3); key(34, R-6);
+      spike(37, R-2); spike(38, R-2); spike(39, R-2); spike(40, R-2);
+      plat(41, R-9, 4); crystals(42, R-9, 2);
+      movH(46, R-6, 2, 4, 2.0);
+      crumble(52, R-5, 3); // crumble platform rage
+      plat(57, R-10, 4); relic(58, R-10, 2); crystals(57, R-10, 2);
+      spike(62, R-2); spike(63, R-2); spike(64, R-2); spike(65, R-2);
+      plat(66, R-7, 3);
+      movV(70, R-5, R-10, 2, 1.6);
+      plat(74, R-8, 3); relic(75, R-8, 3); seed(75, R-9);
+      powerup(80, R-6);
+      plat(84, R-5, 4); crystals(85, R-5, 2);
+      spike(89, R-2); spike(90, R-2); spike(91, R-2);
+      portal(95, R-5);
+    } else {
+      // L4 or L5: harder mix
+      plat(5, R-6, 3); crystals(6, R-6, 2);
+      spike(9, R-2); spike(10, R-2); spike(11, R-2); spike(12, R-2); spike(13, R-2);
+      movH(14, R-8, 2, 5, 2.0);
+      crumble(21, R-6, 3);
+      spike(25, R-2); spike(26, R-2); spike(27, R-2);
+      plat(28, R-9, 4); relic(30, R-9, 1); crystals(28, R-9, 2);
+      bounce(33, R-3);
+      movV(35, R-5, R-10, 2, 1.8);
+      plat(40, R-7, 3); key(41, R-7);
+      spike(44, R-2); spike(45, R-2); spike(46, R-2); spike(47, R-2); spike(48, R-2); spike(49, R-2);
+      movH(50, R-9, 2, 4, 2.2);
+      crumble(56, R-6, 3);
+      plat(61, R-8, 4); relic(63, R-8, 2); crystals(61, R-8, 2);
+      seed(65, R-8);
+      movH(67, R-5, 2, 5, 2.5);
+      spike(73, R-2); spike(74, R-2); spike(75, R-2); spike(76, R-2);
+      plat(77, R-9, 4); relic(79, R-9, 3); crystals(77, R-9, 2);
+      powerup(83, R-7);
+      plat(87, R-6, 4); crystals(88, R-6, 2);
+      spike(92, R-2); spike(93, R-2); spike(94, R-2);
+      portal(98, R-5);
+    }
+  }
+
+  // ============================================================
+  // WORLD 2 — CRYSTAL CAVERNS (Vignette dark, drips from ceiling, tight)
+  // ============================================================
+  _layoutCaverns(plat, crystals, spike, bounce, relic, key, seed, powerup, portal, movH, movV, crumble, R, T) {
+    const L = this.levelIndex;
+    // Low ceiling sections — add tiles on top rows to create cave feel
+    for (let c = 0; c < this.cols; c++) {
+      if (c > 5 && c < 100) {
+        if (c < 30 || (c > 45 && c < 65) || c > 80) {
+          this.setTile(c, 2, 1); // Low ceiling
+          this.setTile(c, 3, 1);
+        }
+      }
+    }
+    if (L === 1) {
+      // Cavern Path: tight crawl spaces, spitter positions
+      plat(6, R-5, 4); crystals(7, R-5, 2);
+      spike(11, R-2); spike(12, R-2); spike(13, R-2);
+      plat(14, R-7, 3); crystals(15, R-7, 2);
+      spike(18, R-2); spike(19, R-2); spike(20, R-2); spike(21, R-2);
+      plat(22, R-5, 3); relic(23, R-5, 1);
+      movH(26, R-5, 2, 3, 1.2);
+      spike(30, R-2); spike(31, R-2); spike(32, R-2);
+      plat(33, R-6, 4); key(35, R-6); crystals(33, R-6, 2);
+      spike(38, R-2); spike(39, R-2); spike(40, R-2); spike(41, R-2);
+      plat(42, R-8, 3); relic(43, R-8, 2);
+      movV(47, R-5, R-8, 2, 1.0);
+      spike(50, R-2); spike(51, R-2);
+      plat(52, R-6, 4); crystals(53, R-6, 2);
+      spike(57, R-2); spike(58, R-2); spike(59, R-2);
+      plat(60, R-5, 3); seed(61, R-5);
+      crumble(64, R-5, 3);
+      spike(68, R-2); spike(69, R-2); spike(70, R-2); spike(71, R-2);
+      plat(72, R-7, 4); relic(74, R-7, 3); crystals(72, R-7, 2);
+      powerup(78, R-6);
+      spike(81, R-2); spike(82, R-2); spike(83, R-2);
+      plat(84, R-5, 5); crystals(85, R-5, 2);
+      portal(95, R-5);
+    } else if (L === 2) {
+      // Glow Chambers: vertical shafts, dangerous
+      plat(5, R-5, 3); crystals(6, R-5, 2);
+      spike(9, R-2); spike(10, R-2); spike(11, R-2); spike(12, R-2);
+      movV(13, R-5, R-10, 2, 1.4);
+      spike(16, R-2); spike(17, R-2); spike(18, R-2);
+      plat(19, R-8, 3); relic(20, R-8, 1); crystals(19, R-8, 2);
+      spike(23, R-2); spike(24, R-2); spike(25, R-2); spike(26, R-2); spike(27, R-2);
+      plat(28, R-6, 4); key(30, R-6);
+      movH(33, R-7, 2, 5, 1.8);
+      spike(39, R-2); spike(40, R-2); spike(41, R-2); spike(42, R-2);
+      crumble(43, R-6, 4); // crumble trap over pit!
+      spike(48, R-2); spike(49, R-2); spike(50, R-2);
+      plat(51, R-9, 4); relic(53, R-9, 2); crystals(51, R-9, 2);
+      movV(56, R-5, R-9, 2, 1.6);
+      spike(59, R-2); spike(60, R-2); spike(61, R-2); spike(62, R-2);
+      plat(63, R-7, 3); seed(64, R-7);
+      spike(67, R-2); spike(68, R-2); spike(69, R-2);
+      movH(70, R-9, 2, 4, 2.0);
+      plat(75, R-7, 4); relic(77, R-7, 3); crystals(75, R-7, 2);
+      powerup(81, R-6);
+      spike(84, R-2); spike(85, R-2); spike(86, R-2); spike(87, R-2);
+      plat(88, R-5, 5); crystals(89, R-5, 2);
+      portal(96, R-5);
+    } else {
+      // Crystal Labyrinth: extremely tight, maze-like
+      plat(5, R-5, 3); crystals(6, R-5, 2);
+      spike(9, R-2); spike(10, R-2); spike(11, R-2); spike(12, R-2); spike(13, R-2);
+      crumble(14, R-6, 3);
+      spike(18, R-2); spike(19, R-2); spike(20, R-2); spike(21, R-2); spike(22, R-2);
+      movV(23, R-5, R-11, 2, 1.6);
+      plat(26, R-9, 4); relic(28, R-9, 1); crystals(26, R-9, 2);
+      spike(31, R-2); spike(32, R-2); spike(33, R-2); spike(34, R-2); spike(35, R-2);
+      crumble(36, R-7, 3);
+      spike(40, R-2); spike(41, R-2); spike(42, R-2); spike(43, R-2);
+      plat(44, R-9, 4); key(46, R-9);
+      spike(49, R-2); spike(50, R-2); spike(51, R-2); spike(52, R-2); spike(53, R-2);
+      movH(54, R-6, 2, 5, 2.4);
+      crumble(60, R-8, 3);
+      spike(64, R-2); spike(65, R-2); spike(66, R-2); spike(67, R-2);
+      plat(68, R-10, 4); relic(70, R-10, 2); crystals(68, R-10, 2); seed(71, R-10);
+      spike(73, R-2); spike(74, R-2); spike(75, R-2); spike(76, R-2); spike(77, R-2);
+      movV(78, R-5, R-10, 2, 2.0);
+      plat(81, R-8, 4); relic(83, R-8, 3); crystals(81, R-8, 2);
+      powerup(87, R-7);
+      spike(89, R-2); spike(90, R-2); spike(91, R-2); spike(92, R-2); spike(93, R-2);
+      plat(94, R-5, 4); crystals(95, R-5, 2);
+      portal(100, R-5);
+    }
+  }
+
+  // ============================================================
+  // WORLD 3 — SKYFORGE PEAKS (Tiny floating cloud platforms, wind gusts)
+  // ============================================================
+  _layoutPeaks(plat, crystals, spike, bounce, relic, key, seed, powerup, portal, movH, movV, crumble, R, T) {
+    const L = this.levelIndex;
+    // Fill floor with pits (aerial world — no ground)
+    for (let c = 5; c < this.cols - 5; c++) {
+      this.setTile(c, R-1, null);
+      this.setTile(c, R-2, null);
+    }
+    if (L === 1) {
+      // Stepping Stones: individual tiny platforms
+      plat(4, R-4, 3, 1); crystals(5, R-4, 2);
+      plat(8, R-6, 2, 1);
+      plat(12, R-8, 3, 1); crystals(13, R-8, 2);
+      movH(16, R-5, 2, 4, 1.4);
+      plat(22, R-9, 2, 1); relic(23, R-9, 1);
+      plat(26, R-7, 2, 1);
+      movV(30, R-5, R-10, 2, 1.2);
+      plat(34, R-8, 3, 1); key(36, R-8); crystals(34, R-8, 2);
+      plat(39, R-6, 2, 1);
+      movH(43, R-10, 2, 5, 1.8);
+      plat(50, R-7, 3, 1); relic(51, R-7, 2); crystals(50, R-7, 2);
+      plat(55, R-5, 2, 1); seed(56, R-5);
+      movV(59, R-4, R-9, 2, 1.6);
+      plat(63, R-8, 3, 1);
+      plat(68, R-6, 2, 1); relic(69, R-6, 3);
+      movH(72, R-9, 2, 4, 2.0);
+      plat(78, R-7, 3, 1); crystals(79, R-7, 2);
+      powerup(83, R-9);
+      plat(86, R-5, 3, 1); crystals(87, R-5, 2);
+      movH(90, R-7, 2, 3, 2.4);
+      portal(95, R-5);
+    } else if (L === 2) {
+      // Gale Cliffs: frequent gaps, fast moving platforms
+      plat(4, R-5, 2, 1); crystals(5, R-5, 2);
+      movH(7, R-7, 2, 4, 2.0);
+      plat(13, R-9, 2, 1); relic(14, R-9, 1);
+      plat(17, R-6, 2, 1);
+      movV(21, R-5, R-10, 2, 1.8);
+      plat(25, R-8, 3, 1); key(27, R-8); crystals(25, R-8, 2);
+      crumble(30, R-6, 2);
+      movH(34, R-9, 2, 5, 2.4);
+      plat(41, R-7, 2, 1); relic(42, R-7, 2);
+      plat(45, R-5, 2, 1); seed(46, R-5);
+      movV(49, R-4, R-10, 2, 2.0);
+      plat(53, R-8, 2, 1);
+      crumble(57, R-6, 2);
+      plat(61, R-9, 2, 1); relic(62, R-9, 3); crystals(61, R-9, 2);
+      movH(65, R-7, 2, 4, 2.8);
+      plat(71, R-5, 2, 1);
+      movV(75, R-5, R-11, 2, 2.2);
+      plat(79, R-8, 3, 1); crystals(80, R-8, 2);
+      powerup(84, R-7);
+      crumble(88, R-6, 2);
+      portal(94, R-5);
+    } else {
+      // Storm Roc Nest: extreme rage — all crumble, almost no static
+      plat(4, R-5, 2, 1); crystals(5, R-5, 2);
+      crumble(7, R-7, 2);
+      movH(11, R-9, 2, 5, 2.8);
+      plat(18, R-7, 2, 1); relic(19, R-7, 1);
+      crumble(22, R-5, 2);
+      movV(26, R-4, R-11, 2, 2.2);
+      plat(30, R-9, 2, 1); key(31, R-9); crystals(30, R-9, 2);
+      crumble(34, R-6, 2);
+      movH(38, R-8, 2, 5, 3.2);
+      plat(45, R-5, 2, 1); relic(46, R-5, 2);
+      crumble(49, R-7, 2);
+      movV(53, R-5, R-11, 2, 2.6);
+      plat(57, R-9, 2, 1); seed(58, R-9);
+      crumble(61, R-7, 2);
+      movH(65, R-5, 2, 5, 3.6);
+      plat(72, R-9, 2, 1); relic(73, R-9, 3); crystals(72, R-9, 2);
+      crumble(77, R-6, 2);
+      powerup(82, R-8);
+      crumble(85, R-5, 2);
+      movH(89, R-8, 2, 4, 4.0);
+      portal(96, R-5);
+    }
+  }
+
+  // ============================================================
+  // WORLD 4 — MOLTEN DEPTHS (Lava pits, moving stone bridges)
+  // ============================================================
+  _layoutVolcano(plat, crystals, spike, bounce, relic, key, seed, powerup, portal, movH, movV, crumble, R, T) {
+    const L = this.levelIndex;
+    // All pits have lava tiles
+    for (let c = 0; c < this.cols; c++) {
+      if ((c>14 && c<19)||(c>34 && c<38)||(c>54 && c<59)||(c>74 && c<79)||(c>92 && c<96)) {
+        this.setTile(c, R-1, 10);
+        this.setTile(c, R-2, 10);
+      }
+    }
+    if (L === 1) {
+      // Volcanic Vent: lava rivers, stone bridges
+      plat(6, R-5, 4, 1); crystals(7, R-5, 2);
+      movH(11, R-4, 2, 3, 1.2); // Bridge over lava
+      plat(16, R-5, 4, 1); relic(17, R-5, 1);
+      movH(21, R-4, 2, 3, 1.4);
+      plat(26, R-6, 4, 1); key(28, R-6); crystals(26, R-6, 2);
+      spike(30, R-3); spike(31, R-3); // Spike rain area
+      plat(32, R-5, 3, 1);
+      movH(36, R-4, 2, 2, 1.6);
+      plat(40, R-5, 4, 1); crystals(41, R-5, 2);
+      crumble(45, R-4, 3);
+      movH(49, R-6, 2, 3, 1.8);
+      plat(54, R-5, 4, 1); relic(56, R-5, 2); seed(57, R-5);
+      spike(59, R-3); spike(60, R-3); spike(61, R-3);
+      movH(62, R-4, 2, 3, 2.0);
+      plat(67, R-6, 4, 1); crystals(68, R-6, 2);
+      movH(72, R-4, 2, 2, 2.2);
+      plat(76, R-5, 4, 1); relic(78, R-5, 3);
+      powerup(82, R-5);
+      spike(85, R-3); spike(86, R-3);
+      plat(87, R-5, 5, 1); crystals(88, R-5, 2);
+      portal(96, R-5);
+    } else if (L === 2) {
+      // Magma Rivers: rising lava, intense
+      this.lavaLevel = 540; // starts at bottom, will rise in boss
+      plat(5, R-5, 4, 1); crystals(6, R-5, 2);
+      spike(10, R-3); spike(11, R-3); spike(12, R-3);
+      movH(13, R-7, 2, 4, 1.6);
+      plat(19, R-8, 4, 1); relic(21, R-8, 1); crystals(19, R-8, 2);
+      spike(24, R-3); spike(25, R-3); spike(26, R-3); spike(27, R-3);
+      movV(28, R-5, R-9, 2, 1.4);
+      plat(32, R-6, 4, 1); key(34, R-6);
+      crumble(37, R-5, 3);
+      spike(41, R-3); spike(42, R-3); spike(43, R-3);
+      movH(44, R-8, 2, 4, 2.0);
+      plat(50, R-6, 4, 1); relic(52, R-6, 2); crystals(50, R-6, 2);
+      spike(55, R-3); spike(56, R-3); spike(57, R-3); spike(58, R-3);
+      movV(59, R-4, R-9, 2, 1.8);
+      crumble(63, R-6, 3);
+      spike(67, R-3); spike(68, R-3); spike(69, R-3);
+      plat(70, R-8, 4, 1); relic(72, R-8, 3); crystals(70, R-8, 2); seed(73, R-8);
+      powerup(77, R-7);
+      movH(79, R-6, 2, 4, 2.4);
+      spike(84, R-3); spike(85, R-3); spike(86, R-3);
+      plat(87, R-5, 5, 1); crystals(88, R-5, 2);
+      portal(96, R-5);
+    } else {
+      // Inferno: narrow ledge hell
+      plat(4, R-5, 2, 1); crystals(5, R-5, 2);
+      for(let c=7;c<=12;c++) spike(c, R-2);
+      plat(13, R-7, 2, 1); relic(14, R-7, 1);
+      for(let c=16;c<=22;c++) spike(c, R-2);
+      movH(23, R-9, 1, 5, 2.0);
+      plat(30, R-6, 2, 1); key(31, R-6); crystals(30, R-6, 2);
+      for(let c=33;c<=40;c++) spike(c, R-2);
+      crumble(41, R-8, 2);
+      for(let c=44;c<=50;c++) spike(c, R-2);
+      movV(51, R-5, R-10, 1, 2.2);
+      plat(54, R-8, 2, 1); relic(55, R-8, 2);
+      for(let c=57;c<=63;c++) spike(c, R-2);
+      crumble(64, R-6, 2);
+      for(let c=67;c<=74;c++) spike(c, R-2);
+      plat(75, R-9, 2, 1); relic(76, R-9, 3); crystals(75, R-9, 2); seed(76, R-10);
+      for(let c=78;c<=83;c++) spike(c, R-2);
+      powerup(85, R-8);
+      movH(87, R-6, 2, 4, 2.8);
+      portal(95, R-5);
+    }
+  }
+
+  // ============================================================
+  // WORLD 5 — FROZEN EXPANSE (Ice, slippery, burrower ambushes)
+  // ============================================================
+  _layoutExpanse(plat, crystals, spike, bounce, relic, key, seed, powerup, portal, movH, movV, crumble, R, T) {
+    const L = this.levelIndex;
+    if (L === 1) {
+      // Snow Valley: wide icy flats, surprise burrowers
+      plat(5, R-5, 6, 11); crystals(6, R-5, 3);
+      spike(12, R-2); spike(13, R-2);
+      plat(14, R-5, 5, 11); relic(16, R-5, 1);
+      spike(20, R-2); spike(21, R-2); spike(22, R-2);
+      plat(23, R-6, 5, 11); key(25, R-6); crystals(23, R-6, 2);
+      movH(29, R-5, 3, 4, 1.2);
+      plat(35, R-5, 5, 11); crystals(36, R-5, 2);
+      spike(41, R-2); spike(42, R-2);
+      plat(43, R-6, 5, 11); relic(45, R-6, 2); seed(46, R-6);
+      spike(49, R-2); spike(50, R-2); spike(51, R-2);
+      plat(52, R-5, 6, 11); crystals(53, R-5, 2);
+      movH(59, R-5, 3, 3, 1.6);
+      plat(64, R-6, 5, 11); crystals(65, R-6, 2);
+      spike(70, R-2); spike(71, R-2); spike(72, R-2);
+      plat(73, R-5, 6, 11); relic(75, R-5, 3);
+      powerup(81, R-5);
+      spike(84, R-2); spike(85, R-2);
+      plat(86, R-5, 6, 11); crystals(87, R-5, 3);
+      portal(96, R-5);
+    } else if (L === 2) {
+      // Ice Fortress: breakable ice bridges (crumble)
+      plat(4, R-5, 3, 11); crystals(5, R-5, 2);
+      crumble(8, R-5, 4);
+      spike(13, R-2); spike(14, R-2); spike(15, R-2);
+      plat(16, R-7, 3, 11); relic(17, R-7, 1);
+      crumble(20, R-5, 4);
+      spike(25, R-2); spike(26, R-2); spike(27, R-2); spike(28, R-2);
+      plat(29, R-8, 3, 11); key(30, R-8); crystals(29, R-8, 2);
+      crumble(33, R-6, 4);
+      spike(38, R-2); spike(39, R-2); spike(40, R-2);
+      movH(41, R-5, 3, 4, 1.8);
+      plat(47, R-7, 3, 11); relic(48, R-7, 2); seed(49, R-7);
+      crumble(51, R-5, 4);
+      spike(56, R-2); spike(57, R-2); spike(58, R-2); spike(59, R-2);
+      plat(60, R-8, 3, 11); crystals(61, R-8, 2);
+      crumble(64, R-6, 4);
+      spike(69, R-2); spike(70, R-2); spike(71, R-2);
+      plat(72, R-7, 4, 11); relic(74, R-7, 3); crystals(72, R-7, 2);
+      powerup(78, R-6);
+      crumble(80, R-5, 4);
+      spike(85, R-2); spike(86, R-2); spike(87, R-2);
+      plat(88, R-5, 5, 11); crystals(89, R-5, 2);
+      portal(97, R-5);
+    } else {
+      // Blizzard Maze: extreme cold — everything crumbles
+      plat(4, R-5, 3, 11); crystals(5, R-5, 2);
+      for(let c=8;c<=11;c++) spike(c, R-2);
+      crumble(12, R-7, 3);
+      for(let c=16;c<=21;c++) spike(c, R-2);
+      plat(22, R-9, 3, 11); relic(23, R-9, 1); crystals(22, R-9, 2);
+      crumble(26, R-6, 3);
+      for(let c=30;c<=35;c++) spike(c, R-2);
+      plat(36, R-8, 3, 11); key(37, R-8);
+      crumble(40, R-6, 3);
+      for(let c=44;c<=49;c++) spike(c, R-2);
+      crumble(50, R-9, 3);
+      for(let c=54;c<=58;c++) spike(c, R-2);
+      plat(59, R-7, 3, 11); relic(60, R-7, 2); seed(61, R-7);
+      crumble(63, R-5, 3);
+      for(let c=67;c<=72;c++) spike(c, R-2);
+      plat(73, R-9, 3, 11); relic(74, R-9, 3); crystals(73, R-9, 2);
+      crumble(77, R-6, 3);
+      powerup(82, R-8);
+      for(let c=85;c<=89;c++) spike(c, R-2);
+      plat(90, R-5, 5, 11); crystals(91, R-5, 2);
+      portal(98, R-5);
+    }
+  }
+
+  // ============================================================
+  // WORLD 6 — SHADOW REALM (Vignette+dark, fake floors, void traps)
+  // ============================================================
+  _layoutShadow(plat, crystals, spike, bounce, relic, key, seed, powerup, portal, movH, movV, crumble, R, T) {
+    const L = this.levelIndex;
+    if (L === 1) {
+      // Shadow Rift: dark with torch guideposts (crumbles + voids)
+      plat(5, R-5, 4, 1); crystals(6, R-5, 2);
+      spike(10, R-2); spike(11, R-2); spike(12, R-2); spike(13, R-2);
+      crumble(14, R-5, 3);
+      spike(18, R-2); spike(19, R-2); spike(20, R-2);
+      plat(21, R-7, 4, 1); relic(23, R-7, 1); crystals(21, R-7, 2);
+      spike(26, R-2); spike(27, R-2); spike(28, R-2); spike(29, R-2); spike(30, R-2);
+      movH(31, R-8, 2, 5, 1.8);
+      plat(38, R-6, 3, 1); key(39, R-6);
+      crumble(42, R-5, 3);
+      spike(46, R-2); spike(47, R-2); spike(48, R-2); spike(49, R-2);
+      plat(50, R-8, 4, 1); relic(52, R-8, 2); crystals(50, R-8, 2);
+      movV(55, R-5, R-10, 2, 1.6);
+      crumble(58, R-7, 3);
+      spike(62, R-2); spike(63, R-2); spike(64, R-2); spike(65, R-2); spike(66, R-2);
+      plat(67, R-9, 4, 1); crystals(68, R-9, 2); seed(70, R-9);
+      movH(72, R-6, 2, 4, 2.0);
+      plat(78, R-8, 4, 1); relic(80, R-8, 3);
+      powerup(84, R-7);
+      spike(87, R-2); spike(88, R-2); spike(89, R-2); spike(90, R-2);
+      plat(91, R-5, 5, 1); crystals(92, R-5, 2);
+      portal(98, R-5);
+    } else if (L === 2) {
+      // Void Fields: fake everything crumbles, chaotic
+      plat(4, R-5, 3, 1); crystals(5, R-5, 2);
+      for(let c=8;c<=13;c++) spike(c, R-2);
+      crumble(14, R-7, 4); // fake safe
+      for(let c=19;c<=24;c++) spike(c, R-2);
+      plat(25, R-9, 3, 1); relic(26, R-9, 1); crystals(25, R-9, 2);
+      crumble(29, R-6, 3);
+      for(let c=33;c<=39;c++) spike(c, R-2);
+      movH(40, R-8, 2, 5, 2.4);
+      plat(47, R-6, 3, 1); key(48, R-6);
+      for(let c=51;c<=57;c++) spike(c, R-2);
+      crumble(58, R-9, 3);
+      for(let c=62;c<=67;c++) spike(c, R-2);
+      plat(68, R-7, 3, 1); relic(69, R-7, 2); crystals(68, R-7, 2); seed(70, R-7);
+      movV(72, R-5, R-11, 2, 2.0);
+      crumble(76, R-8, 3);
+      for(let c=80;c<=85;c++) spike(c, R-2);
+      plat(86, R-9, 4, 1); relic(88, R-9, 3); crystals(86, R-9, 2);
+      powerup(92, R-8);
+      for(let c=94;c<=97;c++) spike(c, R-2);
+      plat(98, R-5, 4, 1); crystals(99, R-5, 2);
+      portal(104, R-5);
+    } else {
+      // Void King Keep: maximum rage. All crumble, fast moving, spike gauntlets
+      plat(4, R-5, 2, 1); crystals(5, R-5, 2);
+      for(let c=7;c<=13;c++) spike(c, R-2);
+      crumble(14, R-8, 2);
+      for(let c=17;c<=23;c++) spike(c, R-2);
+      movH(24, R-10, 1, 6, 3.0);
+      plat(32, R-7, 2, 1); relic(33, R-7, 1);
+      for(let c=35;c<=42;c++) spike(c, R-2);
+      crumble(43, R-9, 2);
+      for(let c=46;c<=52;c++) spike(c, R-2);
+      movV(53, R-5, R-11, 1, 2.8);
+      plat(56, R-8, 2, 1); key(57, R-8); crystals(56, R-8, 2);
+      for(let c=59;c<=65;c++) spike(c, R-2);
+      crumble(66, R-7, 2);
+      for(let c=69;c<=76;c++) spike(c, R-2);
+      plat(77, R-9, 2, 1); relic(78, R-9, 2); seed(79, R-9);
+      for(let c=81;c<=87;c++) spike(c, R-2);
+      crumble(88, R-7, 2);
+      powerup(92, R-9);
+      for(let c=94;c<=98;c++) spike(c, R-2);
+      plat(99, R-5, 4, 1); relic(101, R-5, 3); crystals(99, R-5, 2);
+      portal(106, R-5);
+    }
+  }
+
+
 
   // --- ENTITIES SPAWN ---
   spawnEntities() {
@@ -296,74 +745,81 @@ export class World {
     }
 
     // Spawn standard enemies along scrolling map
+    // Validates the tile directly below is solid ground before spawning
     const spawnEnemy = (col, row, type) => {
+      // Check tile at spawn position and below
+      const tileBelow = this.getTile(col, row + 1);
+      const tileAt = this.getTile(col, row);
+      // Don't spawn if there's no solid ground below or if spawn is in a solid tile
+      if (!tileBelow || !tileBelow.solid) return;
+      if (tileAt && tileAt.solid) return;
       this.game.enemies.push(new Enemy(this.game, col * 32, row * 32, type));
     };
 
     // Spawn rates/types based on worlds
     if (this.worldIndex === 1) {
-      // Meadows: Pufflings and Thornbacks
-      spawnEnemy(12, this.rows - 3, 'puffling');
-      spawnEnemy(25, this.rows - 3, 'puffling');
-      spawnEnemy(32, this.rows - 3, 'thornback');
-      spawnEnemy(43, this.rows - 6, 'puffling');
-      spawnEnemy(64, this.rows - 3, 'thornback');
-      spawnEnemy(73, this.rows - 3, 'puffling');
-      spawnEnemy(88, this.rows - 3, 'thornback');
+      // Meadows: Pufflings and Thornbacks on main floor
+      spawnEnemy(18, this.rows - 4, 'puffling');
+      spawnEnemy(29, this.rows - 4, 'puffling');
+      spawnEnemy(41, this.rows - 5, 'thornback');
+      spawnEnemy(56, this.rows - 4, 'puffling');
+      spawnEnemy(68, this.rows - 4, 'thornback');
+      spawnEnemy(80, this.rows - 4, 'puffling');
     } 
     else if (this.worldIndex === 2) {
-      // Caverns: Spitters, Golem elite
-      spawnEnemy(12, this.rows - 3, 'spitter');
-      spawnEnemy(26, this.rows - 3, 'burrower');
-      spawnEnemy(33, this.rows - 7, 'spitter');
-      spawnEnemy(45, this.rows - 4, 'golem'); // Elite
-      spawnEnemy(63, this.rows - 3, 'burrower');
-      spawnEnemy(78, this.rows - 3, 'spitter');
+      // Caverns: Spitters and Burrowers — matching cavern platforms
+      spawnEnemy(15, this.rows - 4, 'spitter');
+      spawnEnemy(27, this.rows - 4, 'burrower');
+      spawnEnemy(38, this.rows - 7, 'spitter');
+      spawnEnemy(52, this.rows - 4, 'golem');
+      spawnEnemy(65, this.rows - 4, 'burrower');
+      spawnEnemy(79, this.rows - 4, 'spitter');
     }
     else if (this.worldIndex === 3) {
-      // Peaks: Gliders, Sky Hunters
-      spawnEnemy(15, this.rows - 8, 'glider');
-      spawnEnemy(32, this.rows - 10, 'glider');
-      spawnEnemy(53, this.rows - 12, 'skyhunter'); // Elite
-      spawnEnemy(68, this.rows - 9, 'glider');
-      spawnEnemy(85, this.rows - 8, 'skyhunter');
+      // Peaks: Gliders and Sky Hunters on floating platforms
+      // Spawn relative to floating platform rows, not floor
+      spawnEnemy(9, this.rows - 7, 'glider');
+      spawnEnemy(22, this.rows - 10, 'glider');
+      spawnEnemy(35, this.rows - 9, 'skyhunter');
+      spawnEnemy(51, this.rows - 8, 'glider');
+      spawnEnemy(69, this.rows - 7, 'skyhunter');
     }
     else if (this.worldIndex === 4) {
-      // Depths: Lava Warden elites, spitters
-      spawnEnemy(15, this.rows - 3, 'spitter');
-      spawnEnemy(32, this.rows - 4, 'lavawarden'); // Elite
-      spawnEnemy(44, this.rows - 6, 'spitter');
-      spawnEnemy(65, this.rows - 3, 'lavawarden');
-      spawnEnemy(84, this.rows - 3, 'spitter');
+      // Depths: Lava Warden elites on platforms between lava rivers
+      spawnEnemy(17, this.rows - 4, 'spitter');
+      spawnEnemy(30, this.rows - 5, 'lavawarden');
+      spawnEnemy(46, this.rows - 4, 'spitter');
+      spawnEnemy(65, this.rows - 4, 'lavawarden');
+      spawnEnemy(80, this.rows - 4, 'spitter');
     }
     else if (this.worldIndex === 5) {
-      // Expanse: Burrower, Golems
-      spawnEnemy(14, this.rows - 3, 'burrower');
-      spawnEnemy(30, this.rows - 5, 'golem');
-      spawnEnemy(60, this.rows - 6, 'burrower');
-      spawnEnemy(78, this.rows - 3, 'golem');
+      // Expanse: Burrowers on icy flats (wide platforms, valid rows)
+      spawnEnemy(17, this.rows - 4, 'burrower');
+      spawnEnemy(38, this.rows - 5, 'golem');
+      spawnEnemy(55, this.rows - 4, 'burrower');
+      spawnEnemy(75, this.rows - 4, 'golem');
     }
     else if (this.worldIndex === 6) {
-      // Shadows: Mix of elites
-      spawnEnemy(14, this.rows - 3, 'puffling');
-      spawnEnemy(28, this.rows - 3, 'skyhunter');
-      spawnEnemy(45, this.rows - 4, 'lavawarden');
-      spawnEnemy(66, this.rows - 3, 'golem');
-      spawnEnemy(88, this.rows - 3, 'skyhunter');
+      // Shadows: Mix of elites on shadow platforms
+      spawnEnemy(22, this.rows - 6, 'skyhunter');
+      spawnEnemy(40, this.rows - 4, 'lavawarden');
+      spawnEnemy(55, this.rows - 7, 'golem');
+      spawnEnemy(72, this.rows - 4, 'skyhunter');
+      spawnEnemy(88, this.rows - 4, 'lavawarden');
     }
   }
 
   update(dt) {
-    // Update moving platforms
+    const player = this.game.player;
+
+    // ====== MOVING PLATFORMS ======
     for (let plat of this.movingPlatforms) {
       if (plat.startX === plat.endX) {
-        // Vertical movement
         plat.y += plat.speed * plat.dir;
         if (plat.y < Math.min(plat.startY, plat.endY) || plat.y > Math.max(plat.startY, plat.endY)) {
           plat.dir = -plat.dir;
         }
       } else {
-        // Horizontal movement
         plat.x += plat.speed * plat.dir;
         if (plat.x < Math.min(plat.startX, plat.endX) || plat.x > Math.max(plat.startX, plat.endX)) {
           plat.dir = -plat.dir;
@@ -371,37 +827,169 @@ export class World {
       }
     }
 
-    // Update projectiles
-    for (let i = this.projectiles.length - 1; i >= 0; i--) {
-      const p = this.projectiles[i];
-      p.update(dt);
-      if (!p.active) {
-        this.projectiles.splice(i, 1);
-      }
-    }
-
-    // Wind tunnel force in World 3 Peaks
-    if (this.worldIndex === 3) {
-      // Periodic gust of wind pushing player left
-      const player = this.game.player;
-      if (player && player.active && Math.sin(this.game.levelTime * 0.001) > 0.4) {
-        player.vx -= 0.6; // Wind resistance
-        if (Math.random() < 0.2) {
-          this.game.particles.spawnGlideFeathers(player.x + 100, player.y + Math.random()*40, 1);
+    // ====== CRUMBLE PLATFORMS ======
+    if (player && player.active) {
+      for (let cp of this.crumblePlatforms) {
+        if (cp.collapsed) continue;
+        // Check if player is standing on it
+        const platX = cp.startCol * this.tileSize;
+        const platY = cp.row * this.tileSize;
+        const platW = cp.len * this.tileSize;
+        const playerOnIt = (
+          player.x + player.width > platX &&
+          player.x < platX + platW &&
+          player.y + player.height >= platY &&
+          player.y + player.height <= platY + this.tileSize + 4 &&
+          player.vy >= 0
+        );
+        if (playerOnIt && !cp.crumbling) {
+          cp.crumbling = true;
+          this.game.camera.shake(80, 2);
+        }
+        if (cp.crumbling && !cp.collapsed) {
+          cp.health -= dt;
+          // Visual shake effect via camera when near-collapse
+          if (cp.health < 600 && Math.random() < 0.15) {
+            this.game.camera.shake(50, 1);
+          }
+          if (cp.health <= 0) {
+            cp.collapsed = true;
+            // Remove tiles
+            for (let c = 0; c < cp.len; c++) {
+              this.setTile(cp.startCol + c, cp.row, null);
+            }
+            this.game.camera.shake(200, 5);
+            this.game.particles.spawnExplosion(
+              platX + platW/2, platY, '#475569', 10
+            );
+          }
         }
       }
     }
 
-    // Ice Castle flakes in World 5 Expanse
-    if (this.worldIndex === 5 && Math.random() < 0.1) {
-      this.game.particles.spawnSnow(this.game.camera.x + Math.random() * this.game.width, this.game.camera.y);
+    // ====== PROJECTILES ======
+    for (let i = this.projectiles.length - 1; i >= 0; i--) {
+      const p = this.projectiles[i];
+      p.update(dt);
+      if (!p.active) this.projectiles.splice(i, 1);
     }
 
-    // Shadow bubbles in World 6
-    if (this.worldIndex === 6 && Math.random() < 0.08) {
-      this.game.particles.spawnShadow(this.game.camera.x + Math.random() * this.game.width, this.game.camera.y + Math.random()*200);
+    // ====== RAGEBAIT: SURPRISE SPIKE BURSTS ======
+    const isBossLevel = this.levelIndex === this.getMaxLevelsInWorld(this.worldIndex);
+    if (!isBossLevel) {
+      this.spikeTimer -= dt;
+      if (this.spikeTimer <= 0) {
+        // Rage event: 3 spikes near player position!
+        if (player && player.active) {
+          const baseCol = Math.floor(player.x / this.tileSize);
+          for (let offset of [-2, 1, 4]) {
+            const col = Math.max(2, Math.min(this.cols - 3, baseCol + offset));
+            const existingTile = this.getTile(col, this.rows - 2);
+            // Only place on floor tiles (not mid-air platforms)
+            if (!existingTile || existingTile.type === 1) {
+              this.setTile(col, this.rows - 2, 2);
+              this.activeSpikes.push({ col, expire: this.spikeDuration });
+            }
+          }
+          // Rage flash toast
+          this.game.ui.triggerToast('⚠️ DANGER!');
+        }
+        this.spikeTimer = this.randomInterval(4000, 9000);
+      }
+
+      // Expire old spikes
+      for (let i = this.activeSpikes.length - 1; i >= 0; i--) {
+        const s = this.activeSpikes[i];
+        s.expire -= dt;
+        if (s.expire <= 0) {
+          this.setTile(s.col, this.rows - 2, null); // Remove spike cleanly
+          this.activeSpikes.splice(i, 1);
+        }
+      }
+
+      // ====== RAGEBAIT: ENEMY SWARMS ======
+      this.swarmTimer -= dt;
+      if (this.swarmTimer <= 0 && player && player.active) {
+        const hf = this.hardFactor || 1;
+        const extra = Math.max(1, Math.ceil(hf * 1.5));
+        // World-themed swarm type
+        const worldEnemyTypes = {
+          1: ['puffling', 'thornback'],
+          2: ['spitter', 'burrower'],
+          3: ['glider', 'skyhunter'],
+          4: ['spitter', 'lavawarden'],
+          5: ['burrower', 'golem'],
+          6: ['skyhunter', 'lavawarden']
+        };
+        const types = worldEnemyTypes[this.worldIndex] || ['puffling'];
+        // Spawn just off screen edges — feels like an ambush
+        for (let i = 0; i < extra; i++) {
+          const spawnLeft = Math.random() < 0.5;
+          const spawnX = spawnLeft
+            ? this.game.camera.x - 64
+            : this.game.camera.x + this.game.width + 64;
+          const type = types[Math.floor(Math.random() * types.length)];
+          this.game.enemies.push(new Enemy(this.game, spawnX, (this.rows - 3) * this.tileSize, type));
+        }
+        this.game.ui.triggerToast('👾 AMBUSH!');
+        this.game.camera.shake(300, 6);
+        this.swarmTimer = this.randomInterval(14000, 22000);
+      }
+    }
+
+    // ====== WORLD-SPECIFIC EFFECTS ======
+    if (player && player.active) {
+      // World 3: Wind gusts
+      if (this.worldIndex === 3) {
+        const windPhase = Math.sin(this.game.levelTime * 0.001);
+        if (windPhase > 0.4) {
+          player.vx -= 0.5;
+          if (Math.random() < 0.15) {
+            this.game.particles.spawnGlideFeathers(player.x + 80, player.y + Math.random() * 40, 1);
+          }
+        }
+        // Sudden gust rage (5% chance per frame)
+        if (Math.random() < 0.0008 * dt) {
+          player.vx -= 3.5;
+          this.game.ui.triggerToast('💨 GUST!');
+          this.game.camera.shake(200, 4);
+        }
+      }
+
+      // World 4: Lava slowly rises in boss level
+      if (this.worldIndex === 4 && isBossLevel && this.lavaLevel !== null) {
+        this.lavaLevel -= dt * 0.025;
+        this.lavaLevel = Math.max(80, this.lavaLevel);
+      }
+
+      // World 5: Ice blizzard slows player
+      if (this.worldIndex === 5) {
+        if (Math.random() < 0.08) {
+          this.game.particles.spawnSnow(
+            this.game.camera.x + Math.random() * this.game.width,
+            this.game.camera.y
+          );
+        }
+        // Blizzard push (occasional)
+        if (Math.random() < 0.0004 * dt) {
+          player.vx -= 2.0;
+          this.game.ui.triggerToast('🌨️ BLIZZARD!');
+        }
+      }
+
+      // World 6: Shadow bubbles + screen distortion
+      if (this.worldIndex === 6) {
+        if (Math.random() < 0.06) {
+          this.game.particles.spawnShadow(
+            this.game.camera.x + Math.random() * this.game.width,
+            this.game.camera.y + Math.random() * 200
+          );
+        }
+      }
     }
   }
+
+
 
   // --- ITEM COLLECTION OVERLAPS ---
   checkItemCollisions(player) {
@@ -590,33 +1178,33 @@ export class World {
     switch (this.worldIndex) {
       case 1: // Meadows
         grad.addColorStop(0, '#020617'); // Darker top sky for planets
-        grad.addColorStop(0.5, '#0369a1');
-        grad.addColorStop(1, '#bae6fd');
+        grad.addColorStop(0.5, '#0ea5e9'); // vibrant blue
+        grad.addColorStop(1, '#7dd3fc');
         break;
       case 2: // Caverns
-        grad.addColorStop(0, '#020108'); // deep purple cavern glow
-        grad.addColorStop(0.6, '#0d0420');
-        grad.addColorStop(1, '#1e0c3a');
+        grad.addColorStop(0, '#0b001a'); // deep purple cavern glow
+        grad.addColorStop(0.6, '#2e1065');
+        grad.addColorStop(1, '#4c1d95');
         break;
       case 3: // Peaks
-        grad.addColorStop(0, '#090b15'); // sky storm
-        grad.addColorStop(0.8, '#181d2a');
-        grad.addColorStop(1, '#2c3e50');
+        grad.addColorStop(0, '#0f172a'); // sky storm
+        grad.addColorStop(0.8, '#1e3a8a');
+        grad.addColorStop(1, '#3b82f6');
         break;
       case 4: // Depths
-        grad.addColorStop(0, '#090503'); // sulfur char
-        grad.addColorStop(0.8, '#270c03');
-        grad.addColorStop(1, '#4e1202');
+        grad.addColorStop(0, '#270404'); // sulfur char
+        grad.addColorStop(0.8, '#7f1d1d');
+        grad.addColorStop(1, '#b91c1c');
         break;
       case 5: // Expanse
-        grad.addColorStop(0, '#020e17'); // dark navy winter
-        grad.addColorStop(0.7, '#073247');
-        grad.addColorStop(1, '#134e6b');
+        grad.addColorStop(0, '#042f2e'); // dark teal
+        grad.addColorStop(0.7, '#0d9488');
+        grad.addColorStop(1, '#2dd4bf');
         break;
       case 6: // Shadows
-        grad.addColorStop(0, '#020205'); // void abyss
-        grad.addColorStop(0.6, '#060010');
-        grad.addColorStop(1, '#140024');
+        grad.addColorStop(0, '#0a0014'); // void abyss
+        grad.addColorStop(0.6, '#4c0519');
+        grad.addColorStop(1, '#831843');
         break;
     }
     ctx.fillStyle = grad;
@@ -854,49 +1442,36 @@ export class World {
     // 7. Far Parallax cloud silhouettes
     const drawFarLayer = (offsetFactor, color) => {
       ctx.fillStyle = color;
-      const scrollX = -(camera.x * offsetFactor) % w;
+      // scrollX represents how much the camera has moved
+      const scrollX = camera.x * offsetFactor;
       
       ctx.beginPath();
-      ctx.moveTo(scrollX, h);
+      if (this.worldIndex === 2) {
+        ctx.moveTo(0, 0);
+      } else {
+        ctx.moveTo(0, h);
+      }
+      
       for (let x = 0; x <= w + 40; x += 40) {
         let waveY;
+        // Sample the wave at world coordinate (x + scrollX)
+        const worldX = x + scrollX;
+        
         if (this.worldIndex === 2) {
-          waveY = 70 + Math.sin((x - scrollX) * 0.004) * 30;
-          ctx.lineTo(scrollX + x, waveY);
+          waveY = 70 + Math.sin(worldX * 0.004) * 30;
+          ctx.lineTo(x, waveY);
         } else {
-          waveY = h - 110 + Math.sin((x - scrollX) * 0.007) * 25;
-          ctx.lineTo(scrollX + x, waveY);
+          waveY = h - 110 + Math.sin(worldX * 0.007) * 25;
+          ctx.lineTo(x, waveY);
         }
       }
+      
       if (this.worldIndex === 2) {
-        ctx.lineTo(scrollX + w + 40, 0);
-        ctx.lineTo(scrollX, 0);
+        ctx.lineTo(w + 40, 0);
+        ctx.lineTo(0, 0);
       } else {
-        ctx.lineTo(scrollX + w + 40, h);
-        ctx.lineTo(scrollX, h);
-      }
-      ctx.closePath();
-      ctx.fill();
-
-      // Repeat buffer
-      ctx.beginPath();
-      ctx.moveTo(scrollX + w, h);
-      for (let x = 0; x <= w + 40; x += 40) {
-        let waveY;
-        if (this.worldIndex === 2) {
-          waveY = 70 + Math.sin((x - scrollX) * 0.004) * 30;
-          ctx.lineTo(scrollX + w + x, waveY);
-        } else {
-          waveY = h - 110 + Math.sin((x - scrollX) * 0.007) * 25;
-          ctx.lineTo(scrollX + w + x, waveY);
-        }
-      }
-      if (this.worldIndex === 2) {
-        ctx.lineTo(scrollX + w * 2 + 40, 0);
-        ctx.lineTo(scrollX + w, 0);
-      } else {
-        ctx.lineTo(scrollX + w * 2 + 40, h);
-        ctx.lineTo(scrollX + w, h);
+        ctx.lineTo(w + 40, h);
+        ctx.lineTo(0, h);
       }
       ctx.closePath();
       ctx.fill();
@@ -935,15 +1510,15 @@ export class World {
     const startCol = Math.floor(this.game.camera.x / this.tileSize);
     const endCol = Math.ceil((this.game.camera.x + this.game.width) / this.tileSize);
 
-    // Pick base tile colors
+    // Pick base tile colors (Highly Vibrant)
     const colors = [
       "",
-      ["#059669", "#047857", "#34d399", "#064e3b"], // W1 Meadows: Emerald Green (Base, Dark, Light, Shadow)
-      ["#3b0764", "#581c87", "#c084fc", "#120024"], // W2 Caverns: Indigo Purple
-      ["#f1f5f9", "#cbd5e1", "#e2e8f0", "#94a3b8"], // W3 Peaks: Sky Ivory Marble
-      ["#09090b", "#18181b", "#ea580c", "#fef08a"], // W4 Depths: Basalt/Magma
-      ["#38bdf8", "#0284c7", "#e0f2fe", "#075985"], // W5 Expanse: Ice Blue
-      ["#090514", "#020108", "#d946ef", "#4a044e"]  // W6 Shadows: Void Dark
+      ["#10b981", "#047857", "#6ee7b7", "#064e3b"], // W1 Meadows: Vibrant Emerald
+      ["#8b5cf6", "#5b21b6", "#c4b5fd", "#2e1065"], // W2 Caverns: Radiant Indigo
+      ["#f8fafc", "#94a3b8", "#ffffff", "#475569"], // W3 Peaks: Brilliant Marble
+      ["#f97316", "#9a3412", "#fdba74", "#431407"], // W4 Depths: Blazing Magma
+      ["#0ea5e9", "#0369a1", "#7dd3fc", "#082f49"], // W5 Expanse: Neon Ice
+      ["#d946ef", "#86198f", "#f0abfc", "#4a044e"]  // W6 Shadows: Neon Void
     ];
     const theme = colors[this.worldIndex] || ["#52525b", "#3f3f46", "#71717a", "#27272a"];
 

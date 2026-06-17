@@ -6,6 +6,7 @@ import { World } from '../game/World.js';
 import { ParticleSystem } from '../game/ParticleSystem.js';
 import { AudioSynthesizer } from '../audio/AudioSynthesizer.js';
 import { UIManager } from '../ui/UIManager.js';
+import difficultyConfig from '../data/difficulty.json' with { type: 'json' };
 
 export class Game {
   constructor() {
@@ -34,6 +35,10 @@ export class Game {
     this.enemies = [];
     this.powerUps = [];
     this.activeBoss = null;
+
+    // Difficulty settings
+    this.difficulty = 'hard'; // can be 'easy', 'hard', 'brutal'
+    this.difficultySettings = difficultyConfig[this.difficulty];
 
     // Level progression stats
     this.currentWorldIndex = 1;
@@ -70,8 +75,14 @@ export class Game {
     if (this.width < 720) this.width = 720;     // Minimum width
     if (this.width > 1280) this.width = 1280;   // Maximum width
     
-    this.canvas.width = this.width;
-    this.canvas.height = this.height;
+    // Handle High-DPI (Retina) displays to prevent blurriness
+    const dpr = window.devicePixelRatio || 1;
+    this.canvas.width = this.width * dpr;
+    this.canvas.height = this.height * dpr;
+    
+    // Reset and scale context so internal drawing uses logical CSS pixels
+    this.ctx.setTransform(1, 0, 0, 1, 0, 0);
+    this.ctx.scale(dpr, dpr);
 
     // Position canvas absolute centered in CSS
     this.canvas.style.position = 'absolute';
@@ -131,6 +142,13 @@ export class Game {
 
     // Generate World
     this.world = new World(this, worldIdx, levelIdx);
+
+    // Apply difficulty scaling to world
+    if (this.difficultySettings && this.difficultySettings.speedrunFactor) {
+      this.world.speedrunTime *= this.difficultySettings.speedrunFactor;
+    }
+    // Compute hard factor for enemy scaling
+    this.world.hardFactor = 1 + this.currentWorldIndex * 0.2 + this.currentLevelIndex * 0.1;
     
     // Spawn player at world spawn point
     this.player = new Player(this, this.world.spawnX, this.world.spawnY);
@@ -254,8 +272,16 @@ export class Game {
       // Check collision with player
       if (enemy.active && this.player.active && !this.player.isInvulnerable()) {
         if (this.checkAABB(this.player, enemy)) {
-          this.player.damage(enemy.damagePower || 1);
-          this.noDamageRun = false;
+          // Jump on head to bounce
+          if (this.player.vy > 0 && this.player.y + this.player.height < enemy.y + 24) {
+            enemy.hit(this.player.powerups && this.player.powerups.has('fire') ? 2 : 1);
+            this.player.vy = -this.player.jumpHeight * 0.85;
+            this.audio.playSFX('bounce');
+            this.particles.spawnDust(this.player.x + this.player.width/2, this.player.y + this.player.height, 8);
+          } else {
+            this.player.damage(enemy.damagePower || 1);
+            this.noDamageRun = false;
+          }
         }
       }
 
@@ -269,15 +295,23 @@ export class Game {
     if (this.activeBoss) {
       this.activeBoss.update(dt);
       
-      if (this.activeBoss.active && this.player.active && !this.player.isInvulnerable()) {
+      if (this.activeBoss && this.activeBoss.active && this.player.active && !this.player.isInvulnerable()) {
         if (this.checkAABB(this.player, this.activeBoss)) {
-          this.player.damage(2); // Bosses do double damage
-          this.noDamageRun = false;
+          // Jump on boss head to bounce
+          if (this.player.vy > 0 && this.player.y + this.player.height < this.activeBoss.y + 36) {
+            this.activeBoss.hit(this.player.powerups && this.player.powerups.has('fire') ? 3 : 1.5);
+            this.player.vy = -this.player.jumpHeight * 1.2;
+            this.audio.playSFX('bounce');
+            this.particles.spawnDust(this.player.x + this.player.width/2, this.player.y + this.player.height, 14);
+          } else {
+            this.player.damage(2); // Bosses do double damage
+            this.noDamageRun = false;
+          }
         }
       }
 
       // Check boss projectile collisions with player
-      if (this.activeBoss.projectiles) {
+      if (this.activeBoss && this.activeBoss.projectiles) {
         for (let p of this.activeBoss.projectiles) {
           if (p.active && this.checkAABB(this.player, p) && !this.player.isInvulnerable()) {
             this.player.damage(1);

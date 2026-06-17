@@ -163,6 +163,12 @@ export class Enemy {
       return;
     }
 
+    if (this.y > this.game.world.rows * this.game.world.tileSize + 100) {
+      this.active = false;
+      this.markedForRemoval = true;
+      return;
+    }
+
     const player = this.game.player;
     if (!player) return;
 
@@ -220,7 +226,7 @@ export class Enemy {
         } else if (this.gliderState === 'diving') {
           this.y += this.vy;
           // Dive impact or floor collision
-          let hitsTile = Physics.getTileCollisions(this, this.game.world).length > 0;
+          let hitsTile = Physics.getTileCollisions(this, this.game.world).some(t => t.solid);
           if (hitsTile || this.y > this.homeY + 200) {
             this.gliderState = 'returning';
             this.vy = -2.0; // Slow rise
@@ -341,13 +347,14 @@ export class Enemy {
       color: '#a3e635',
       glowColor: '#84cc16',
       animTime: 0,
+      game: this.game,
       update(dt) {
         this.x += this.vx;
         this.y += this.vy;
         this.animTime += dt;
         
         // Remove if hit solid
-        let hits = Physics.getTileCollisions(this, this.game.world).length > 0;
+        let hits = Physics.getTileCollisions(this, this.game.world).some(t => t.solid);
         if (hits) this.active = false;
       },
       draw(ctx) {
@@ -410,7 +417,7 @@ export class Enemy {
           this.game.particles.spawnFlame(this.x, this.y, 1);
         }
 
-        let hits = Physics.getTileCollisions(this, this.game.world).length > 0;
+        let hits = Physics.getTileCollisions(this, this.game.world).some(t => t.solid);
         if (hits) {
           this.active = false;
           // explode splash sparks

@@ -985,32 +985,166 @@ export class UIManager {
   }
 
   // --- NOTIFICATION TOAST POPUPS ---
-  triggerToast(msg) {
+  triggerToast(msg, duration = 2200, type = 'warning') {
+    // Deduplicate: remove same toasts already showing
+    const existing = document.querySelectorAll('.game-toast');
+    existing.forEach(t => { if (t.innerText === msg) t.remove(); });
+
     const toast = document.createElement('div');
+    toast.className = 'game-toast';
     toast.style.position = 'absolute';
-    toast.style.bottom = '24px';
-    toast.style.left = '50%';
-    toast.style.transform = 'translateX(-50%)';
+    toast.style.zIndex = '999';
     toast.style.padding = '10px 24px';
     toast.style.borderRadius = '24px';
-    toast.style.background = 'rgba(239, 68, 68, 0.9)';
-    toast.style.border = '1px solid rgba(255, 255, 255, 0.2)';
     toast.style.color = '#fff';
     toast.style.fontFamily = 'var(--font-display)';
     toast.style.fontWeight = 'bold';
-    toast.style.zIndex = '999';
+    toast.style.fontSize = '0.95rem';
     toast.style.backdropFilter = 'blur(8px)';
     toast.style.boxShadow = '0 8px 32px rgba(0,0,0,0.4)';
+    toast.style.transition = 'opacity 0.4s, transform 0.4s';
+    toast.style.opacity = '0';
+    toast.style.transform = 'translateX(-50%) translateY(10px)';
     toast.innerText = msg;
+
+    if (type === 'boss-taunt') {
+      // Boss taunts appear at top center in dark purple
+      toast.style.top = '80px';
+      toast.style.bottom = 'auto';
+      toast.style.left = '50%';
+      toast.style.background = 'rgba(88, 28, 135, 0.92)';
+      toast.style.border = '1px solid rgba(217, 70, 239, 0.6)';
+      toast.style.fontSize = '1.05rem';
+      toast.style.fontStyle = 'italic';
+    } else if (type === 'warning') {
+      // Ragebait danger warnings — red, bottom center
+      toast.style.bottom = '30px';
+      toast.style.left = '50%';
+      toast.style.background = 'rgba(220, 38, 38, 0.92)';
+      toast.style.border = '1px solid rgba(255, 100, 100, 0.5)';
+    } else {
+      // Info: key collected, etc.
+      toast.style.bottom = '30px';
+      toast.style.left = '50%';
+      toast.style.background = 'rgba(6, 182, 212, 0.88)';
+      toast.style.border = '1px solid rgba(34, 211, 238, 0.5)';
+    }
 
     const app = document.getElementById('app');
     app.appendChild(toast);
 
+    requestAnimationFrame(() => {
+      toast.style.opacity = '1';
+      toast.style.transform = 'translateX(-50%) translateY(0)';
+    });
+
     setTimeout(() => {
-      toast.style.transition = 'opacity 0.5s';
       toast.style.opacity = '0';
-      setTimeout(() => toast.remove(), 500);
-    }, 2000);
+      toast.style.transform = 'translateX(-50%) translateY(-8px)';
+      setTimeout(() => toast.remove(), 420);
+    }, duration);
+  }
+
+  // --- BOSS INTRO MODAL ---
+  showBossIntro(boss) {
+    // Remove existing if any
+    const old = document.getElementById('boss-intro-overlay');
+    if (old) old.remove();
+
+    const overlay = document.createElement('div');
+    overlay.id = 'boss-intro-overlay';
+    overlay.style.cssText = `
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      z-index: 500;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0,0,0,0.72);
+      backdrop-filter: blur(6px);
+      animation: fadeIn 0.6s forwards;
+    `;
+
+    const worldColors = ['', '#10b981', '#8b5cf6', '#f59e0b', '#ef4444', '#06b6d4', '#d946ef'];
+    const worldColor = worldColors[boss.worldIndex] || '#22d3ee';
+
+    const card = document.createElement('div');
+    card.style.cssText = `
+      background: rgba(15, 23, 42, 0.95);
+      border: 2px solid ${worldColor};
+      border-radius: 20px;
+      padding: 36px 44px;
+      max-width: 540px;
+      width: 90%;
+      text-align: center;
+      box-shadow: 0 0 60px ${worldColor}44, 0 20px 60px rgba(0,0,0,0.8);
+      animation: scaleBounce 0.5s forwards;
+    `;
+
+    card.innerHTML = `
+      <div style="font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.15em; color: ${worldColor}; font-family: var(--font-display); margin-bottom: 8px;">World ${boss.worldIndex} Boss</div>
+      <h2 style="font-family: var(--font-display); font-size: 2rem; color: #fff; margin: 0 0 4px 0; text-shadow: 0 0 20px ${worldColor};">${boss.name}</h2>
+      <div style="width: 60px; height: 2px; background: ${worldColor}; margin: 12px auto 20px; border-radius: 2px;"></div>
+      <p style="color: #94a3b8; font-size: 0.95rem; line-height: 1.6; margin: 0 0 24px 0; font-style: italic;">${boss.lore[boss.worldIndex]}</p>
+      <div style="background: rgba(0,0,0,0.4); border-left: 3px solid ${worldColor}; border-radius: 8px; padding: 14px 18px; text-align: left; margin-bottom: 24px;">
+        <p style="color: #e2e8f0; font-size: 0.88rem; line-height: 1.6; margin: 0;">${boss.hints[boss.worldIndex]}</p>
+      </div>
+      <div style="display: flex; gap: 8px; justify-content: center; font-size: 0.8rem; color: #64748b; margin-bottom: 24px;">
+        <span style="background: rgba(255,255,255,0.05); padding: 4px 12px; border-radius: 99px;">⚔ 3 Phases</span>
+        <span style="background: rgba(255,255,255,0.05); padding: 4px 12px; border-radius: 99px;">❤ ${boss.maxHealth} HP</span>
+        <span style="background: rgba(255,255,255,0.05); padding: 4px 12px; border-radius: 99px;">💀 Boss Arena</span>
+      </div>
+      <button id="boss-intro-fight-btn" style="
+        background: linear-gradient(135deg, ${worldColor}, ${worldColor}99);
+        color: #fff;
+        border: none;
+        border-radius: 12px;
+        padding: 14px 40px;
+        font-family: var(--font-display);
+        font-size: 1rem;
+        font-weight: bold;
+        cursor: pointer;
+        letter-spacing: 0.05em;
+        box-shadow: 0 4px 20px ${worldColor}44;
+        transition: transform 0.15s, box-shadow 0.15s;
+      ">⚔ BEGIN BATTLE</button>
+    `;
+
+    overlay.appendChild(card);
+    document.getElementById('app').appendChild(overlay);
+
+    // Freeze game while showing
+    const prevState = this.game.state;
+    this.game.state = 'paused';
+
+    const btn = document.getElementById('boss-intro-fight-btn');
+    btn.addEventListener('mouseenter', () => {
+      btn.style.transform = 'scale(1.04)';
+      btn.style.boxShadow = `0 8px 30px ${worldColor}66`;
+    });
+    btn.addEventListener('mouseleave', () => {
+      btn.style.transform = 'scale(1)';
+      btn.style.boxShadow = `0 4px 20px ${worldColor}44`;
+    });
+    btn.addEventListener('click', () => {
+      overlay.style.opacity = '0';
+      overlay.style.transition = 'opacity 0.4s';
+      setTimeout(() => {
+        overlay.remove();
+        this.game.state = 'playing';
+        // Show hint as toast reminder
+        setTimeout(() => {
+          this.triggerToast(boss.hints[boss.worldIndex], 5000, 'info');
+        }, 1000);
+      }, 420);
+    });
+
+    // Auto-dismiss after 8 seconds
+    setTimeout(() => {
+      if (document.getElementById('boss-intro-overlay')) {
+        btn.click();
+      }
+    }, 8000);
   }
 
   triggerAchievementToast(id) {
@@ -1052,3 +1186,4 @@ export class UIManager {
     }, 3500);
   }
 }
+

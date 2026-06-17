@@ -86,9 +86,12 @@ export class ParticleSystem {
   }
 
   draw(ctx) {
+    ctx.save();
+    ctx.globalCompositeOperation = 'screen';
     for (let p of this.particles) {
       p.draw(ctx);
     }
+    ctx.restore();
   }
 
   // --- SPECIFIC SPAWNERS ---

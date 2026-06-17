@@ -19,6 +19,39 @@ export class Boss {
     ];
     this.name = this.names[worldIndex];
 
+    // Boss lore intro lines (shown before fight)
+    this.lore = [
+      "",
+      "Ancient guardian of the Meadows. Its runic shell has shielded these lands for a thousand years. Now corrupted by the Void...",
+      "Born from crystallized mana veins deep in the earth. It slithers between dimensions, fracturing light into lethal shards.",
+      "The Storm Roc commands the tempest itself. Winds strong enough to strip flesh from bone answer its screaming calls.",
+      "A titan of molten stone and volcanic fury. Every step cracks the earth. Every roar erupts the mountains.",
+      "Last survivor of the ice age. The Frost Mammoth sealed an entire civilization beneath glaciers. Now it comes for you.",
+      "He was once a Realm Guardian. Consumed by the Void, all that remains is hunger. He knows your every move."
+    ];
+
+    // Boss defeat hints (weakness)
+    this.hints = [
+      "",
+      "💡 HINT: Strike its exposed HEAD — the shell deflects all frontal attacks! Jump over ground slams in Phase 2.",
+      "💡 HINT: Dodge crystals using DASH — they home in slowly. Stand BEHIND it when the laser sweeps Phase 2.",
+      "💡 HINT: Stay GROUNDED! Wind blasts miss low targets. When it dive-bombs, dash THROUGH it to avoid damage.",
+      "💡 HINT: Climb HIGH platforms when lava rises in Phase 2! Hit it 3 times between flame wave attacks.",
+      "💡 HINT: JUMP when it charges — it can't turn mid-slide. In Phase 3, icicles warn where to dodge.",
+      "💡 HINT: RESIST the pull — dash away from gravity zones. It teleports when hit — predict the NEXT location!"
+    ];
+
+    // Boss taunts per phase (shown as screen flash text)
+    this.taunts = [
+      [],
+      ["The meadows will know peace only through your defeat!", "Your bones will fertilize my garden!", "Is that all the Realm Keeper can muster?!"],
+      ["Your light ends HERE, intruder!", "These crystals have tasted a thousand heroes!", "Shatter. SHATTER. SHATTER!"],
+      ["The wind BENDS to MY will!", "You cannot outrun the sky!", "I will scatter your dust across a thousand peaks!"],
+      ["THIS IS MY DOMAIN! YOU BURN!", "The volcano weeps tears of fire for you!", "Kneel before the mountain's fury!"],
+      ["The cold is eternal. YOU are not.", "I will entomb you in ice... forever.", "Your warmth disgusts me."],
+      ["I KNOW WHAT YOU FEAR...", "The Void is patient. I am not.", "Every hero ends here. Every. Single. One."]
+    ];
+
     // Sizing
     this.width = 64;
     this.height = 64;
@@ -43,8 +76,26 @@ export class Boss {
     this.laserTimer = 0;
     this.gravityShifted = false;
 
+    // Intro / taunt state
+    this.introShown = false;
+    this.tauntTimer = this.randomTauntInterval();
+
     this.initBossStats();
+
+    // Trigger boss intro after short delay
+    setTimeout(() => {
+      if (this.active && !this.introShown) {
+        this.introShown = true;
+        this.game.ui.showBossIntro(this);
+      }
+    }, 800);
   }
+
+  randomTauntInterval() {
+    return 15000 + Math.random() * 10000; // 15–25 seconds between taunts
+  }
+
+
 
   initBossStats() {
     switch (this.worldIndex) {
@@ -157,9 +208,22 @@ export class Boss {
       }
     }
 
+    // Boss taunt system
+    this.tauntTimer -= dt;
+    if (this.tauntTimer <= 0) {
+      const tauntList = this.taunts[this.worldIndex] || [];
+      if (tauntList.length > 0) {
+        const taunt = tauntList[Math.floor(Math.random() * tauntList.length)];
+        this.game.ui.triggerToast(`👿 ${taunt}`, 3500, 'boss-taunt');
+      }
+      this.tauntTimer = this.randomTauntInterval();
+    }
+
     // Run AI based on World Index
     this.runAI(dt, player);
   }
+
+
 
   runAI(dt, player) {
     const dx = player.x - this.x;
@@ -559,7 +623,7 @@ export class Boss {
         }
 
         // Check floor hit
-        let hits = Physics.getTileCollisions(this, this.game.world).length > 0;
+        let hits = Physics.getTileCollisions(this, this.game.world).some(t => t.solid);
         if (hits || this.y > 600) {
           this.active = false;
           this.game.particles.spawnExplosion(this.x, this.y, this.color, 4);
@@ -640,7 +704,7 @@ export class Boss {
           }
 
           // Check walls
-          let hits = Physics.getTileCollisions(this, this.game.world).length > 0;
+          let hits = Physics.getTileCollisions(this, this.game.world).some(t => t.solid);
           if (hits || this.x < 0 || this.x > 2000) {
             this.active = false;
           }

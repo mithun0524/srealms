@@ -1,0 +1,5 @@
+{
+  "easy":   { "speedrunFactor": 1.0, "spikeChance": 0.0, "swarmInterval": 0 },
+  "hard":   { "speedrunFactor": 0.85, "spikeChance": 0.15, "swarmInterval": 12 },
+  "brutal": { "speedrunFactor": 0.70, "spikeChance": 0.30, "swarmInterval": 8 }
+}

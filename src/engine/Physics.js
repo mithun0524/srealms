@@ -78,8 +78,8 @@ export class Physics {
     for (let row = startRow; row <= endRow; row++) {
       for (let col = startCol; col <= endCol; col++) {
         const tile = world.getTile(col, row);
-        if (tile && tile.solid) {
-          collisions.push({ col, row, solid: true });
+        if (tile) {
+          collisions.push({ col, row, solid: tile.solid, type: tile.type });
         }
       }
     }

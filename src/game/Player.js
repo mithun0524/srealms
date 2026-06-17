@@ -107,6 +107,10 @@ export class Player {
     this.invulnTimer = 1500; // 1.5 seconds invuln
     this.game.audio.playSFX('damage');
     this.game.camera.shake(300, 8);
+    
+    // Add knockback
+    this.vy = -4;
+    this.vx = (this.facing === 'right' ? -3 : 3);
 
     if (this.health <= 0) {
       this.die();
@@ -477,8 +481,8 @@ export class Player {
           this.game.particles.spawnSparkles(this.x + this.width / 2, this.y + this.height / 2, '#f97316', 1);
         }
 
-        // Check tile collisions
-        let hits = Physics.getTileCollisions(this, this.game.world).length > 0;
+        // Hit wall/floor
+        let hits = Physics.getTileCollisions(this, this.game.world).some(t => t.solid);
         if (hits) {
           this.explode();
           return;
@@ -733,7 +737,7 @@ export class Player {
     }
     // Apply Player glow shadow
     ctx.shadowColor = this.powerups.has('fire') ? '#f97316' : (this.powerups.has('thunder') ? '#60a5fa' : '#22d3ee');
-    ctx.shadowBlur = this.powerups.has('fire') || this.powerups.has('thunder') ? 14 : 6;
+    ctx.shadowBlur = this.powerups.has('fire') || this.powerups.has('thunder') ? 18 : 12;
 
     // 2. DRAW PET COMPANION (renders floating slightly offset)
     this.drawPet(ctx);

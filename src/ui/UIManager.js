@@ -33,6 +33,7 @@ export class UIManager {
     this.activeShopTab = 'skins';
     this.trialHelmet = null;
     this.trialArmor = null;
+    this.creatorPreviewPose = 'jog';
 
     this.initListeners();
     this.updateScreens();
@@ -468,6 +469,42 @@ export class UIManager {
       desc.className = 'shop-item-desc';
       desc.innerText = item.desc;
 
+      card.appendChild(preview);
+      card.appendChild(title);
+      card.appendChild(desc);
+
+      if (this.activeShopTab === 'classes') {
+        const statRatings = {
+          skyrunner: { speed: 70, jump: 85, health: 60, energy: 60 },
+          shadow_blade: { speed: 95, jump: 80, health: 40, energy: 90 },
+          crystal_knight: { speed: 50, jump: 80, health: 100, energy: 40 },
+          magma_ranger: { speed: 75, jump: 85, health: 75, energy: 60 }
+        };
+        const ratings = statRatings[item.id] || { speed: 50, jump: 50, health: 50, energy: 50 };
+
+        const statsBlock = document.createElement('div');
+        statsBlock.className = 'class-stats-block';
+        statsBlock.innerHTML = `
+          <div class="stat-bar-row">
+            <span>SPD</span>
+            <div class="stat-bar-outer"><div class="stat-bar-inner speed" style="width: ${ratings.speed}%"></div></div>
+          </div>
+          <div class="stat-bar-row">
+            <span>JMP</span>
+            <div class="stat-bar-outer"><div class="stat-bar-inner jump" style="width: ${ratings.jump}%"></div></div>
+          </div>
+          <div class="stat-bar-row">
+            <span>VIT</span>
+            <div class="stat-bar-outer"><div class="stat-bar-inner health" style="width: ${ratings.health}%"></div></div>
+          </div>
+          <div class="stat-bar-row">
+            <span>NRG</span>
+            <div class="stat-bar-outer"><div class="stat-bar-inner energy" style="width: ${ratings.energy}%"></div></div>
+          </div>
+        `;
+        card.appendChild(statsBlock);
+      }
+
       const btn = document.createElement('button');
       btn.className = 'shop-item-btn';
 
@@ -509,9 +546,6 @@ export class UIManager {
         });
       }
 
-      card.appendChild(preview);
-      card.appendChild(title);
-      card.appendChild(desc);
       card.appendChild(btn);
 
       grid.appendChild(card);
@@ -562,6 +596,16 @@ export class UIManager {
         });
       }
     }
+
+    // Pose selector button bindings
+    const poseBtns = document.querySelectorAll('.pose-btn');
+    poseBtns.forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        poseBtns.forEach(b => b.classList.remove('active'));
+        e.target.classList.add('active');
+        this.creatorPreviewPose = e.target.getAttribute('data-pose');
+      });
+    });
   }
 
   populatePartsSelectors() {
@@ -786,10 +830,27 @@ export class UIManager {
       mockSaveData.customColors.visor = this.game.saveData.customColors.visor;
       mockSaveData.customColors.accent = this.game.saveData.customColors.accent;
 
-      // Update variables
+      // Update variables based on pose
+      const pose = this.creatorPreviewPose || 'jog';
+      
+      if (pose === 'jog') {
+        previewPlayer.vx = 0.25; // run in place
+        previewPlayer.runCycle += 0.04;
+        previewPlayer.isAttacking = false;
+        previewPlayer.attackTimer = 0;
+      } else if (pose === 'breathe') {
+        previewPlayer.vx = 0.05; // tiny walk to trigger subtle bobbing
+        previewPlayer.runCycle += 0.02; // slow breathing rate
+        previewPlayer.isAttacking = false;
+        previewPlayer.attackTimer = 0;
+      } else if (pose === 'slash') {
+        previewPlayer.vx = 0;
+        previewPlayer.runCycle = 0;
+        previewPlayer.isAttacking = true;
+        previewPlayer.attackTimer = 160; // hold sword extended pose
+      }
+      
       previewPlayer.animTime += 16.67;
-      previewPlayer.runCycle += 0.04;
-      previewPlayer.vx = 0.25; // run in place
       previewPlayer.onGround = true;
       mockGame.levelTime = Date.now();
 

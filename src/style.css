@@ -1253,3 +1253,102 @@ body.touch-device .mobile-controls {
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
+
+/* Pose Selector Buttons */
+.pose-selector {
+  display: flex;
+  gap: 6px;
+  width: 100%;
+  justify-content: center;
+  margin-top: 10px;
+}
+
+.pose-btn {
+  flex: 1;
+  padding: 5px 8px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: var(--font-display);
+  letter-spacing: 0.5px;
+}
+
+.pose-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-primary);
+}
+
+.pose-btn.active {
+  background: rgba(34, 211, 238, 0.15);
+  border-color: var(--accent-cyan);
+  color: var(--accent-cyan);
+  box-shadow: 0 0 8px rgba(34, 211, 238, 0.2);
+}
+
+/* Class Stat Bars */
+.class-stats-block {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin-top: 8px;
+  margin-bottom: 14px;
+}
+
+.stat-bar-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.65rem;
+  font-family: var(--font-display);
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.5);
+  gap: 8px;
+}
+
+.stat-bar-row span {
+  width: 28px;
+  text-align: left;
+  font-size: 0.6rem;
+  letter-spacing: 0.5px;
+}
+
+.stat-bar-outer {
+  flex: 1;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 3px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.02);
+}
+
+.stat-bar-inner {
+  height: 100%;
+  border-radius: 3px;
+}
+
+.stat-bar-inner.speed {
+  background: #a855f7; /* Purple */
+  box-shadow: 0 0 6px rgba(168, 85, 247, 0.4);
+}
+
+.stat-bar-inner.jump {
+  background: #0ea5e9; /* Sky Blue */
+  box-shadow: 0 0 6px rgba(14, 165, 233, 0.4);
+}
+
+.stat-bar-inner.health {
+  background: #ef4444; /* Red */
+  box-shadow: 0 0 6px rgba(239, 68, 68, 0.4);
+}
+
+.stat-bar-inner.energy {
+  background: #22d3ee; /* Cyan */
+  box-shadow: 0 0 6px rgba(34, 211, 238, 0.4);
+}

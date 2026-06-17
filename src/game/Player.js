@@ -55,6 +55,7 @@ export class Player {
 
   initClassStats() {
     const selectedClass = this.game.saveData.selectedClass || 'skyrunner';
+    this.selectedClass = selectedClass;
     switch (selectedClass) {
       case 'shadow_blade':
         this.speed = 4.2;
@@ -173,6 +174,11 @@ export class Player {
       this.attackTimer = 160; // 160ms attack
       this.game.audio.playSFX('jump'); // Whistle/swipe
       this.performAttackSwipe();
+      
+      const selectedClass = this.game.saveData.selectedClass || 'skyrunner';
+      if (selectedClass === 'magma_ranger') {
+        this.fireMagmaRangerFireball();
+      }
     }
 
     if (this.isAttacking) {
@@ -396,7 +402,14 @@ export class Player {
     };
 
     // Attack particles
-    const splashColor = this.powerups.has('fire') ? '#f97316' : (this.powerups.has('thunder') ? '#60a5fa' : '#ffffff');
+    let classColor = '#ffffff';
+    const selectedClass = this.game.saveData.selectedClass || 'skyrunner';
+    if (selectedClass === 'skyrunner') classColor = '#22d3ee';
+    else if (selectedClass === 'shadow_blade') classColor = '#a855f7';
+    else if (selectedClass === 'crystal_knight') classColor = '#60a5fa';
+    else if (selectedClass === 'magma_ranger') classColor = '#f97316';
+
+    const splashColor = this.powerups.has('fire') ? '#f97316' : (this.powerups.has('thunder') ? '#60a5fa' : classColor);
     this.game.particles.spawnSparkles(swipeRect.x + reach / 2, swipeRect.y + swipeRect.height / 2, splashColor, 6);
 
     // Hit standard/elite enemies
@@ -421,6 +434,103 @@ export class Player {
         this.game.camera.shake(200, 4);
       }
     }
+  }
+
+  fireMagmaRangerFireball() {
+    const isFacingRight = this.facing === 'right';
+    const fireball = {
+      x: isFacingRight ? this.x + this.width : this.x - 12,
+      y: this.y + this.height / 2 - 6,
+      width: 12,
+      height: 12,
+      vx: (isFacingRight ? 1 : -1) * 6,
+      vy: 0,
+      active: true,
+      damagePower: 2.5,
+      color: '#ef4444',
+      glowColor: '#f97316',
+      animTime: 0,
+      game: this.game,
+      update(dt) {
+        this.x += this.vx;
+        this.y += this.vy;
+        this.animTime += dt;
+
+        // Spawn flame trail particles
+        if (Math.random() < 0.4) {
+          this.game.particles.spawnSparkles(this.x + this.width / 2, this.y + this.height / 2, '#f97316', 1);
+        }
+
+        // Check tile collisions
+        let hits = Physics.getTileCollisions(this, this.game.world).length > 0;
+        if (hits) {
+          this.explode();
+          return;
+        }
+
+        // Check enemy collisions
+        for (let enemy of this.game.enemies) {
+          if (enemy.active && Physics.checkAABB(this, enemy)) {
+            enemy.hit(this.damagePower);
+            this.game.camera.shake(100, 2);
+            this.explode();
+            return;
+          }
+        }
+
+        // Check boss collisions
+        if (this.game.activeBoss && this.game.activeBoss.active) {
+          if (Physics.checkAABB(this, this.game.activeBoss)) {
+            this.game.activeBoss.hit(this.damagePower);
+            this.game.camera.shake(200, 4);
+            this.explode();
+            return;
+          }
+        }
+
+        // Check range limits / offscreen check to clean up
+        const camX = this.game.camera.x;
+        if (this.x < camX - 100 || this.x > camX + this.game.width + 100) {
+          this.active = false;
+        }
+      },
+      explode() {
+        this.active = false;
+        // spawn explosion particles
+        this.game.particles.spawnSparkles(this.x + this.width / 2, this.y + this.height / 2, '#ef4444', 8);
+        this.game.particles.spawnSparkles(this.x + this.width / 2, this.y + this.height / 2, '#f97316', 6);
+        // Play pop sound
+        this.game.audio.playSFX('explosion'); 
+      },
+      draw(ctx) {
+        ctx.save();
+        ctx.shadowColor = this.glowColor;
+        ctx.shadowBlur = 10;
+
+        // Outer glow
+        ctx.fillStyle = 'rgba(239, 68, 68, 0.4)';
+        ctx.beginPath();
+        const pulse = 1 + Math.sin(this.animTime * 0.02) * 0.2;
+        ctx.arc(this.x + this.width / 2, this.y + this.height / 2, 8 * pulse, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Inner core
+        ctx.fillStyle = '#f97316';
+        ctx.beginPath();
+        ctx.arc(this.x + this.width / 2, this.y + this.height / 2, 4.5, 0, Math.PI * 2);
+        ctx.fill();
+
+        // White core
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.arc(this.x + this.width / 2 - 1, this.y + this.height / 2 - 1, 2, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.restore();
+      }
+    };
+
+    this.game.world.projectiles.push(fireball);
   }
 
   performGroundPoundShockwave() {
@@ -1039,7 +1149,14 @@ export class Player {
       ctx.rotate(-0.5 * facingMult);
       ctx.fillRect(4 * facingMult, -6, 12 * facingMult, 4);
       // Glowing Runic Sword
-      ctx.fillStyle = this.powerups.has('fire') ? '#f97316' : '#e2e8f0';
+      let bladeColor = '#e2e8f0';
+      const selectedClass = this.game.saveData.selectedClass || 'skyrunner';
+      if (selectedClass === 'skyrunner') bladeColor = '#22d3ee';
+      else if (selectedClass === 'shadow_blade') bladeColor = '#a855f7';
+      else if (selectedClass === 'crystal_knight') bladeColor = '#60a5fa';
+      else if (selectedClass === 'magma_ranger') bladeColor = '#f97316';
+
+      ctx.fillStyle = this.powerups.has('fire') ? '#f97316' : (this.powerups.has('thunder') ? '#60a5fa' : bladeColor);
       ctx.shadowColor = ctx.fillStyle;
       ctx.shadowBlur = 8;
       ctx.fillRect(14 * facingMult, -15, 2.5 * facingMult, 15);

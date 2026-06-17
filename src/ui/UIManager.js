@@ -553,6 +553,7 @@ export class UIManager {
       if (pickers[key]) {
         pickers[key].addEventListener('input', (e) => {
           this.game.saveData.customColors[key] = e.target.value;
+          this.game.saveData.equippedSkin = 'default';
           SaveSystem.save(this.game.saveData);
         });
       }

@@ -58,8 +58,46 @@ export class Game {
   }
 
   resizeCanvas() {
-    this.canvas.style.width = '100%';
-    this.canvas.style.height = '100%';
+    const windowWidth = window.innerWidth;
+    const windowHeight = window.innerHeight;
+    
+    // Lock height to 540 (matches 17 grid rows of 32px)
+    this.height = 540;
+    // Calculate width to match aspect ratio
+    this.width = Math.round(this.height * (windowWidth / windowHeight));
+    
+    // Cap virtual width to keep physics and visibility balanced
+    if (this.width < 720) this.width = 720;     // Minimum width
+    if (this.width > 1280) this.width = 1280;   // Maximum width
+    
+    this.canvas.width = this.width;
+    this.canvas.height = this.height;
+
+    // Position canvas absolute centered in CSS
+    this.canvas.style.position = 'absolute';
+    this.canvas.style.left = '50%';
+    this.canvas.style.top = '50%';
+    this.canvas.style.transform = 'translate(-50%, -50%)';
+
+    // Calculate canvas size style to fit screen without deforming
+    const targetRatio = this.width / this.height;
+    const windowRatio = windowWidth / windowHeight;
+
+    if (windowRatio > targetRatio) {
+      this.canvas.style.height = '100%';
+      this.canvas.style.width = 'auto';
+    } else {
+      this.canvas.style.width = '100%';
+      this.canvas.style.height = 'auto';
+    }
+
+    if (this.camera) {
+      this.camera.width = this.width;
+      this.camera.height = this.height;
+      if (this.world) {
+        this.camera.setBounds(0, 0, this.world.cols * this.world.tileSize, this.world.rows * this.world.tileSize);
+      }
+    }
   }
 
   // --- STATE TRANSITIONS ---

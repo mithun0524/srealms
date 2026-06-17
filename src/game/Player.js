@@ -320,6 +320,36 @@ export class Player {
         this.game.audio.playSFX('explosion');
         this.performGroundPoundShockwave();
       }
+      }
+    }
+
+    // Spawn cosmetic movement trails
+    const trail = this.game.saveData.equippedTrail;
+    if (trail !== 'none' && (Math.abs(this.vx) > 0.5 || !this.onGround) && Math.random() < 0.35) {
+      const trailColor = this.getTrailColor();
+      this.game.particles.particles.push({
+        x: this.x + Math.random() * this.width,
+        y: this.y + Math.random() * this.height,
+        vx: (Math.random() - 0.5) * 0.4 - this.vx * 0.08,
+        vy: (Math.random() - 0.5) * 0.4 - this.vy * 0.05,
+        color: trailColor,
+        size: Math.random() * 4 + 2,
+        maxLife: 300,
+        life: 300,
+        type: 'glow',
+        update(dt) { this.life -= dt; this.x += this.vx; this.y += this.vy; },
+        draw(ctx) {
+          ctx.save();
+          ctx.globalAlpha = this.life / this.maxLife;
+          ctx.fillStyle = this.color;
+          ctx.shadowColor = this.color;
+          ctx.shadowBlur = 6;
+          ctx.beginPath();
+          ctx.arc(this.x, this.y, this.size / 2, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+        }
+      });
     }
   }
 
@@ -453,6 +483,10 @@ export class Player {
     // Position transform
     ctx.translate(this.x + this.width / 2, this.y + this.height / 2);
 
+    // Dynamic lean tilt based on movement speed
+    const leanTilt = this.vx * 0.04;
+    ctx.rotate(leanTilt);
+
     // Apply squashing/stretching
     let scaleX = 1;
     let scaleY = 1;
@@ -460,31 +494,44 @@ export class Player {
     if (!this.onGround) {
       if (this.vy < -0.1) {
         // Jumping - stretch
-        scaleX = 0.9;
-        scaleY = 1.1;
+        scaleX = 0.88;
+        scaleY = 1.12;
       } else if (this.vy > 0.5 && !this.isGliding) {
         // Falling - stretch
-        scaleX = 0.92;
-        scaleY = 1.08;
+        scaleX = 0.9;
+        scaleY = 1.1;
       }
     } else if (Math.abs(this.vx) > 0.1) {
       // Running wobble
-      scaleY = 1 + Math.sin(this.runCycle) * 0.04;
-      scaleX = 1 - Math.sin(this.runCycle) * 0.04;
+      scaleY = 1 + Math.sin(this.runCycle) * 0.05;
+      scaleX = 1 - Math.sin(this.runCycle) * 0.05;
     }
 
     ctx.scale(scaleX, scaleY);
 
-    // DRAW SHIELD IF ACTIVE
+    // DRAW CYBER-SHIELD IF ACTIVE (rippling hexagonal grid aura)
     if (this.hasShield) {
-      ctx.strokeStyle = '#06b6d4';
-      ctx.lineWidth = 2;
-      ctx.shadowColor = '#06b6d4';
-      ctx.shadowBlur = 10;
+      ctx.save();
+      ctx.strokeStyle = '#22d3ee';
+      ctx.lineWidth = 1.8;
+      ctx.shadowColor = '#22d3ee';
+      ctx.shadowBlur = 12;
+      
+      const r = Math.max(this.width, this.height) / 2 + 8;
+      const pulseRadius = r + Math.sin(this.game.levelTime * 0.008) * 1.5;
+      
+      // Draw grid ring
       ctx.beginPath();
-      ctx.arc(0, 0, Math.max(this.width, this.height) / 2 + 6, 0, Math.PI * 2);
+      ctx.arc(0, 0, pulseRadius, 0, Math.PI * 2);
       ctx.stroke();
-      ctx.shadowBlur = 0; // reset
+
+      // Cyber lines crossing
+      ctx.strokeStyle = 'rgba(34, 211, 238, 0.3)';
+      ctx.beginPath();
+      ctx.moveTo(-pulseRadius, 0); ctx.lineTo(pulseRadius, 0);
+      ctx.moveTo(0, -pulseRadius); ctx.lineTo(0, pulseRadius);
+      ctx.stroke();
+      ctx.restore();
     }
 
     // 1. DRAW CAPE (drawn behind body with smooth wave history)
@@ -493,85 +540,141 @@ export class Player {
       ctx.save();
       ctx.fillStyle = capeColor;
       ctx.beginPath();
-      ctx.moveTo(-4 * facingMult, -8);
+      ctx.moveTo(-5 * facingMult, -8);
       
       // Draw ribbon using coordinate history sways
       for (let i = this.history.length - 1; i >= 0; i--) {
         const pt = this.history[i];
         const dx = pt.x - this.x;
         const dy = pt.y - this.y;
-        ctx.lineTo(-10 * facingMult + dx, 2 + dy + (this.history.length - i) * 1.5);
+        ctx.lineTo(-11 * facingMult + dx, 2 + dy + (this.history.length - i) * 1.5);
       }
       for (let i = 0; i < this.history.length; i++) {
         const pt = this.history[i];
         const dx = pt.x - this.x;
         const dy = pt.y - this.y;
-        ctx.lineTo(-4 * facingMult + dx, 8 + dy + (this.history.length - i) * 1.5);
+        ctx.lineTo(-5 * facingMult + dx, 8 + dy + (this.history.length - i) * 1.5);
       }
       ctx.closePath();
       ctx.fill();
+
+      // Cape inner runic vein line
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(-5 * facingMult, -4);
+      for (let i = this.history.length - 1; i >= 0; i--) {
+        const pt = this.history[i];
+        const dx = pt.x - this.x;
+        const dy = pt.y - this.y;
+        ctx.lineTo(-8 * facingMult + dx, 5 + dy + (this.history.length - i) * 1.5);
+      }
+      ctx.stroke();
+
       ctx.restore();
     }
 
     // Apply Player glow shadow
     ctx.shadowColor = this.powerups.has('fire') ? '#f97316' : (this.powerups.has('thunder') ? '#60a5fa' : color);
-    ctx.shadowBlur = this.powerups.has('fire') || this.powerups.has('thunder') ? 12 : 4;
+    ctx.shadowBlur = this.powerups.has('fire') || this.powerups.has('thunder') ? 14 : 6;
 
     // 2. DRAW PET COMPANION (renders floating slightly offset)
     this.drawPet(ctx);
 
     // 3. DRAW LEGS
-    ctx.fillStyle = '#1e293b'; // dark pants
+    ctx.fillStyle = '#0f172a'; // Slate dark pants/boots
     const legOffset = Math.sin(this.runCycle) * 6;
     if (Math.abs(this.vx) > 0.1 && this.onGround) {
       // Leg A
-      ctx.fillRect(-6, 8, 3, 10 + legOffset * facingMult);
+      ctx.fillRect(-6, 8, 3.5, 10 + legOffset * facingMult);
       // Leg B
-      ctx.fillRect(2, 8, 3, 10 - legOffset * facingMult);
+      ctx.fillRect(2.5, 8, 3.5, 10 - legOffset * facingMult);
     } else {
       // Standing legs
-      ctx.fillRect(-6, 8, 3, 10);
-      ctx.fillRect(3, 8, 3, 10);
+      ctx.fillRect(-6, 8, 3.5, 10);
+      ctx.fillRect(2.5, 8, 3.5, 10);
     }
 
-    // 4. DRAW BODY (Gown / Shirt)
-    ctx.fillStyle = color;
+    // 4. DRAW BODY (Cyber Torso Chassis)
+    ctx.fillStyle = '#1e293b'; // Base carbon armor plate
     ctx.beginPath();
-    ctx.roundRect(-8, -12, 16, 22, 6);
+    ctx.roundRect(-8, -12, 16, 21, 5);
     ctx.fill();
 
-    // Chest crystal star detail
-    ctx.fillStyle = '#fff';
+    // Secondary colored armor breastplate
+    ctx.fillStyle = color;
     ctx.beginPath();
-    ctx.moveTo(0, -6);
-    ctx.lineTo(3, -3);
-    ctx.lineTo(0, 0);
-    ctx.lineTo(-3, -3);
+    ctx.roundRect(-6.5, -10, 13, 15, 3);
+    ctx.fill();
+
+    // Torso glowing diagonal neon lines
+    ctx.strokeStyle = this.powerups.has('fire') ? '#fbbf24' : '#e2e8f0';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(-4, -6); ctx.lineTo(4, -2);
+    ctx.moveTo(-4, -2); ctx.lineTo(4, 2);
+    ctx.stroke();
+
+    // Runic explore crest detail
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.moveTo(0, -7);
+    ctx.lineTo(2.5, -4.5);
+    ctx.lineTo(0, -2);
+    ctx.lineTo(-2.5, -4.5);
     ctx.closePath();
     ctx.fill();
 
-    // 5. DRAW HEAD
-    ctx.fillStyle = '#fed7aa'; // skin peach
+    // Shoulder pads
+    ctx.fillStyle = '#334155';
+    ctx.fillRect(-9.5, -11, 2, 4);
+    ctx.fillRect(7.5, -11, 2, 4);
+
+    // 5. DRAW DETAILED HELMET (Explorer Head Gear)
+    // Dome
+    let helmetGrad = ctx.createLinearGradient(0, -28, 0, -14);
+    helmetGrad.addColorStop(0, '#64748b');
+    helmetGrad.addColorStop(1, '#334155');
+    ctx.fillStyle = helmetGrad;
     ctx.beginPath();
-    ctx.arc(0, -20, 7, 0, Math.PI * 2);
+    ctx.arc(0, -19.5, 8.5, 0, Math.PI * 2);
     ctx.fill();
 
-    // Hair or Hood
-    ctx.fillStyle = '#1e293b'; // dark hair
+    // Comm headset module
+    ctx.fillStyle = '#1e293b';
+    ctx.fillRect(-9.5, -22, 2, 5);
+    ctx.fillRect(7.5, -22, 2, 5);
+    
+    // Tiny diagonal antenna
+    ctx.strokeStyle = '#64748b';
+    ctx.lineWidth = 1;
     ctx.beginPath();
-    ctx.arc(0, -22, 7.5, Math.PI, 0); // top half cap
+    ctx.moveTo(-8.5, -20);
+    ctx.lineTo(-13, -26);
+    ctx.stroke();
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.arc(-13, -26, 1.5, 0, Math.PI * 2);
     ctx.fill();
-    // Front fringe
-    ctx.fillRect(-7.5, -22, 5, 4);
 
-    // Glowing Goggles/Visor instead of plain square eye
-    ctx.fillStyle = this.powerups.has('fire') ? '#fbbf24' : '#22d3ee';
-    ctx.shadowColor = ctx.fillStyle;
-    ctx.shadowBlur = 6;
+    // Glowing visor with scan lines
+    const visorColor = this.powerups.has('fire') ? '#fbbf24' : '#22d3ee';
+    ctx.fillStyle = visorColor;
+    ctx.shadowColor = visorColor;
+    ctx.shadowBlur = 8;
     ctx.beginPath();
-    ctx.roundRect(1 * facingMult, -22, 6 * facingMult, 3.5, 1);
+    ctx.roundRect(-4, -21.5, 10 * facingMult, 4, 1.5);
     ctx.fill();
-    ctx.shadowBlur = 0; // reset to avoid blurring everything else
+    ctx.shadowBlur = 0; // reset
+
+    // Visor sweep line
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 0.5;
+    const visorSweepY = -19.5 + Math.sin(this.game.levelTime * 0.007) * 1.8;
+    ctx.beginPath();
+    ctx.moveTo(-3.5, visorSweepY);
+    ctx.lineTo(6, visorSweepY);
+    ctx.stroke();
 
     // 6. DRAW ARMS
     ctx.fillStyle = color;
@@ -580,17 +683,19 @@ export class Player {
       ctx.save();
       ctx.rotate(-0.5 * facingMult);
       ctx.fillRect(4 * facingMult, -6, 12 * facingMult, 4);
-      // Sword vector
+      // Glowing Runic Sword
       ctx.fillStyle = this.powerups.has('fire') ? '#f97316' : '#e2e8f0';
-      ctx.fillRect(14 * facingMult, -14, 2 * facingMult, 14);
+      ctx.shadowColor = ctx.fillStyle;
+      ctx.shadowBlur = 8;
+      ctx.fillRect(14 * facingMult, -15, 2.5 * facingMult, 15);
       ctx.restore();
     } else if (this.isGliding) {
       // Gliding: arms out wide
-      ctx.fillRect(-12, -8, 24, 3);
+      ctx.fillRect(-12, -7, 24, 3);
     } else {
       // Idle bobbing arms
-      ctx.fillRect(8 * facingMult, -8, 3, 10);
-      ctx.fillRect(-11 * facingMult, -8, 3, 10);
+      ctx.fillRect(8 * facingMult, -7, 3, 10);
+      ctx.fillRect(-11 * facingMult, -7, 3, 10);
     }
 
     ctx.restore();

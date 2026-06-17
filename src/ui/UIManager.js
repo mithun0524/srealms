@@ -119,6 +119,21 @@ export class UIManager {
     };
     setupSliderVal('slider-music', 'music-volume-val');
     setupSliderVal('slider-sfx', 'sfx-volume-val');
+
+    // Fullscreen Toggle
+    const btnFullscreen = document.getElementById('btn-toggle-fullscreen');
+    if (btnFullscreen) {
+      btnFullscreen.addEventListener('click', () => {
+        if (!document.fullscreenElement) {
+          document.documentElement.requestFullscreen().catch(err => {
+            this.triggerToast("Fullscreen mode is blocked by browser policies.");
+            console.error(err);
+          });
+        } else {
+          document.exitFullscreen();
+        }
+      });
+    }
   }
 
   // --- SCREEN ACTIVE STATES TOGGLE ---

@@ -159,6 +159,10 @@ export class Game {
       this.player.vx = 0;
       this.player.vy = 0;
       
+      if (this.saveData.selectedClass === 'crystal_knight') {
+        this.player.hasShield = true;
+      }
+      
       // Position player at checkpoint
       this.player.x = this.world.latestCheckpoint.x;
       this.player.y = this.world.latestCheckpoint.y;

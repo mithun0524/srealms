@@ -36,15 +36,12 @@ export class Player {
     this.attackTimer = 0;
     this.facing = 'right'; // left, right
 
-    // Stats
-    this.maxHealth = 3;
-    this.health = 3;
-    this.maxEnergy = 100;
-    this.energy = 100;
-
     // Buffs Manager
     this.powerups = new PowerUpManager(this);
     this.hasShield = false;
+
+    // Initialize class stats
+    this.initClassStats();
 
     // Invulnerability
     this.invulnTimer = 0;
@@ -54,6 +51,40 @@ export class Player {
     this.animTime = 0;
     this.runCycle = 0;
     this.history = [];
+  }
+
+  initClassStats() {
+    const selectedClass = this.game.saveData.selectedClass || 'skyrunner';
+    switch (selectedClass) {
+      case 'shadow_blade':
+        this.speed = 4.2;
+        this.jumpHeight = 6.5;
+        this.maxHealth = 2;
+        this.maxEnergy = 120;
+        break;
+      case 'crystal_knight':
+        this.speed = 3.2;
+        this.jumpHeight = 6.5;
+        this.maxHealth = 4;
+        this.maxEnergy = 80;
+        this.hasShield = true;
+        break;
+      case 'magma_ranger':
+        this.speed = 3.6;
+        this.jumpHeight = 6.8;
+        this.maxHealth = 3;
+        this.maxEnergy = 100;
+        break;
+      case 'skyrunner':
+      default:
+        this.speed = 3.6;
+        this.jumpHeight = 6.8;
+        this.maxHealth = 3;
+        this.maxEnergy = 100;
+        break;
+    }
+    this.health = this.maxHealth;
+    this.energy = this.maxEnergy;
   }
 
   isInvulnerable() {
@@ -251,7 +282,8 @@ export class Player {
       }
       // Double Jump
       else if (!this.hasDoubleJumped && canUse('doublejump')) {
-        this.vy = -this.jumpHeight * 0.95;
+        const doubleJumpMult = (this.game.saveData.selectedClass === 'skyrunner') ? 1.15 : 0.95;
+        this.vy = -this.jumpHeight * doubleJumpMult;
         this.hasDoubleJumped = true;
         this.game.audio.playSFX('jump');
         this.game.particles.spawnDust(this.x + this.width / 2, this.y + this.height, 10);
@@ -274,7 +306,8 @@ export class Player {
       if (!isAirDash || (isAirDash && canUse('airdash') && !this.hasAirDashed)) {
         this.isDashing = true;
         this.dashTimer = 160; // 160ms of dash speed
-        this.dashCooldown = 600; // 600ms cooldown
+        const cooldownMult = (this.game.saveData.selectedClass === 'shadow_blade') ? 0.5 : 1.0;
+        this.dashCooldown = 600 * cooldownMult; // 600ms (or 300ms) cooldown
         this.energy = Math.max(0, this.energy - 30);
         
         let speedMult = this.powerups.has('wind') ? 2.8 : 2.2;
@@ -572,13 +605,23 @@ export class Player {
 
       ctx.restore();
     }
-
     // Apply Player glow shadow
-    ctx.shadowColor = this.powerups.has('fire') ? '#f97316' : (this.powerups.has('thunder') ? '#60a5fa' : color);
+    ctx.shadowColor = this.powerups.has('fire') ? '#f97316' : (this.powerups.has('thunder') ? '#60a5fa' : '#22d3ee');
     ctx.shadowBlur = this.powerups.has('fire') || this.powerups.has('thunder') ? 14 : 6;
 
     // 2. DRAW PET COMPANION (renders floating slightly offset)
     this.drawPet(ctx);
+
+    // Get custom colors
+    let primary = this.game.saveData.customColors.primary;
+    let secondary = this.game.saveData.customColors.secondary;
+    let visor = this.game.saveData.customColors.visor;
+    let accent = this.game.saveData.customColors.accent;
+
+    // Fallback if skin is equipped
+    if (this.game.saveData.equippedSkin !== 'default') {
+      secondary = this.getSkinColor();
+    }
 
     // 3. DRAW LEGS
     ctx.fillStyle = '#0f172a'; // Slate dark pants/boots
@@ -595,88 +638,299 @@ export class Player {
     }
 
     // 4. DRAW BODY (Cyber Torso Chassis)
-    ctx.fillStyle = '#1e293b'; // Base carbon armor plate
-    ctx.beginPath();
-    ctx.roundRect(-8, -12, 16, 21, 5);
-    ctx.fill();
+    const armorStyle = this.game.saveData.equippedArmor || 'default';
+    if (armorStyle === 'heavy_plate') {
+      // Bulky Heavy Armor
+      ctx.fillStyle = primary;
+      ctx.beginPath();
+      ctx.roundRect(-9.5, -12, 19, 22, 6);
+      ctx.fill();
 
-    // Secondary colored armor breastplate
-    ctx.fillStyle = color;
-    ctx.beginPath();
-    ctx.roundRect(-6.5, -10, 13, 15, 3);
-    ctx.fill();
+      ctx.fillStyle = secondary;
+      ctx.beginPath();
+      ctx.roundRect(-8, -10, 16, 17, 4);
+      ctx.fill();
 
-    // Torso glowing diagonal neon lines
-    ctx.strokeStyle = this.powerups.has('fire') ? '#fbbf24' : '#e2e8f0';
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(-4, -6); ctx.lineTo(4, -2);
-    ctx.moveTo(-4, -2); ctx.lineTo(4, 2);
-    ctx.stroke();
+      // Heavy rivets
+      ctx.fillStyle = accent;
+      ctx.fillRect(-6, -8, 2, 2);
+      ctx.fillRect(4, -8, 2, 2);
+      ctx.fillRect(-6, 2, 2, 2);
+      ctx.fillRect(4, 2, 2, 2);
 
-    // Runic explore crest detail
-    ctx.fillStyle = '#ffffff';
-    ctx.beginPath();
-    ctx.moveTo(0, -7);
-    ctx.lineTo(2.5, -4.5);
-    ctx.lineTo(0, -2);
-    ctx.lineTo(-2.5, -4.5);
-    ctx.closePath();
-    ctx.fill();
+      // Huge shoulder pads
+      ctx.fillStyle = '#475569';
+      ctx.fillRect(-11.5, -11, 3.5, 6);
+      ctx.fillRect(8, -11, 3.5, 6);
+    } else if (armorStyle === 'energy_robes') {
+      // Flowing Wizard Robes
+      ctx.fillStyle = primary;
+      ctx.beginPath();
+      ctx.roundRect(-8, -12, 16, 21, 4);
+      ctx.fill();
 
-    // Shoulder pads
-    ctx.fillStyle = '#334155';
-    ctx.fillRect(-9.5, -11, 2, 4);
-    ctx.fillRect(7.5, -11, 2, 4);
+      ctx.fillStyle = secondary;
+      ctx.beginPath();
+      // Drapery hanging below hips
+      ctx.moveTo(-7, -10);
+      ctx.lineTo(7, -10);
+      ctx.lineTo(9.5, 12);
+      ctx.lineTo(-9.5, 12);
+      ctx.closePath();
+      ctx.fill();
 
-    // 5. DRAW DETAILED HELMET (Explorer Head Gear)
-    // Dome
-    let helmetGrad = ctx.createLinearGradient(0, -28, 0, -14);
-    helmetGrad.addColorStop(0, '#64748b');
-    helmetGrad.addColorStop(1, '#334155');
-    ctx.fillStyle = helmetGrad;
-    ctx.beginPath();
-    ctx.arc(0, -19.5, 8.5, 0, Math.PI * 2);
-    ctx.fill();
+      // Glowing magical runes down center
+      ctx.strokeStyle = accent;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(0, -6); ctx.lineTo(0, 6);
+      ctx.moveTo(-3, -2); ctx.lineTo(3, -2);
+      ctx.moveTo(-2, 2); ctx.lineTo(2, 2);
+      ctx.stroke();
 
-    // Comm headset module
-    ctx.fillStyle = '#1e293b';
-    ctx.fillRect(-9.5, -22, 2, 5);
-    ctx.fillRect(7.5, -22, 2, 5);
-    
-    // Tiny diagonal antenna
-    ctx.strokeStyle = '#64748b';
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(-8.5, -20);
-    ctx.lineTo(-13, -26);
-    ctx.stroke();
-    ctx.fillStyle = color;
-    ctx.beginPath();
-    ctx.arc(-13, -26, 1.5, 0, Math.PI * 2);
-    ctx.fill();
+      // Minimal shoulder wraps
+      ctx.fillStyle = primary;
+      ctx.fillRect(-9, -11, 1.5, 4);
+      ctx.fillRect(7.5, -11, 1.5, 4);
+    } else if (armorStyle === 'hazard_gear') {
+      // Hazmat/Reformed Toxin Chassis
+      ctx.fillStyle = primary;
+      ctx.beginPath();
+      ctx.roundRect(-8, -12, 16, 21, 5);
+      ctx.fill();
 
-    // Glowing visor with scan lines
-    const visorColor = this.powerups.has('fire') ? '#fbbf24' : '#22d3ee';
-    ctx.fillStyle = visorColor;
-    ctx.shadowColor = visorColor;
-    ctx.shadowBlur = 8;
-    ctx.beginPath();
-    ctx.roundRect(-4, -21.5, 10 * facingMult, 4, 1.5);
-    ctx.fill();
-    ctx.shadowBlur = 0; // reset
+      // Ribbed lines on hazard suit
+      ctx.strokeStyle = '#0f172a';
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      ctx.moveTo(-8, -8); ctx.lineTo(8, -8);
+      ctx.moveTo(-8, -4); ctx.lineTo(8, -4);
+      ctx.moveTo(-8, 0); ctx.lineTo(8, 0);
+      ctx.stroke();
 
-    // Visor sweep line
-    ctx.strokeStyle = '#ffffff';
-    ctx.lineWidth = 0.5;
-    const visorSweepY = -19.5 + Math.sin(this.game.levelTime * 0.007) * 1.8;
-    ctx.beginPath();
-    ctx.moveTo(-3.5, visorSweepY);
-    ctx.lineTo(6, visorSweepY);
-    ctx.stroke();
+      ctx.fillStyle = secondary;
+      ctx.beginPath();
+      ctx.roundRect(-6.5, -10, 13, 8, 2);
+      ctx.fill();
+
+      // Circular Respirator filter on center chest
+      ctx.fillStyle = '#475569';
+      ctx.beginPath();
+      ctx.arc(0, 3, 4.5, 0, Math.PI*2);
+      ctx.fill();
+      // visor color glow core
+      ctx.fillStyle = visor;
+      ctx.beginPath();
+      ctx.arc(0, 3, 2, 0, Math.PI*2);
+      ctx.fill();
+
+      // Shoulder pads
+      ctx.fillStyle = '#64748b';
+      ctx.fillRect(-9.5, -11, 2, 4.5);
+      ctx.fillRect(7.5, -11, 2, 4.5);
+    } else {
+      // Default Explorer Chassis
+      ctx.fillStyle = primary;
+      ctx.beginPath();
+      ctx.roundRect(-8, -12, 16, 21, 5);
+      ctx.fill();
+
+      ctx.fillStyle = secondary;
+      ctx.beginPath();
+      ctx.roundRect(-6.5, -10, 13, 15, 3);
+      ctx.fill();
+
+      // Torso glowing diagonal neon lines
+      ctx.strokeStyle = this.powerups.has('fire') ? '#fbbf24' : accent;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(-4, -6); ctx.lineTo(4, -2);
+      ctx.moveTo(-4, -2); ctx.lineTo(4, 2);
+      ctx.stroke();
+
+      // Runic explore crest detail
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.moveTo(0, -7);
+      ctx.lineTo(2.5, -4.5);
+      ctx.lineTo(0, -2);
+      ctx.lineTo(-2.5, -4.5);
+      ctx.closePath();
+      ctx.fill();
+
+      // Shoulder pads
+      ctx.fillStyle = '#334155';
+      ctx.fillRect(-9.5, -11, 2, 4);
+      ctx.fillRect(7.5, -11, 2, 4);
+    }
+
+    // 5. DRAW HELMET (Explorer Head Gear)
+    const helmetStyle = this.game.saveData.equippedHelmet || 'default';
+    if (helmetStyle === 'scanning_visor') {
+      // Angular Cylindrical Helm
+      ctx.fillStyle = primary;
+      ctx.beginPath();
+      ctx.roundRect(-8.5, -28, 17, 14, 2);
+      ctx.fill();
+
+      // Visor stretching corner-to-corner
+      ctx.fillStyle = visor;
+      ctx.shadowColor = visor;
+      ctx.shadowBlur = 8;
+      ctx.beginPath();
+      ctx.roundRect(-7, -24, 14, 7, 1);
+      ctx.fill();
+      ctx.shadowBlur = 0;
+
+      // Vertical sweep line
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 0.8;
+      const sweepX = Math.sin(this.game.levelTime * 0.009) * 6;
+      ctx.beginPath();
+      ctx.moveTo(sweepX, -24);
+      ctx.lineTo(sweepX, -17);
+      ctx.stroke();
+    } else if (helmetStyle === 'goggle_visor') {
+      // Goggle Visor Dome
+      ctx.fillStyle = primary;
+      ctx.beginPath();
+      ctx.arc(0, -19.5, 8.5, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Goggles
+      ctx.fillStyle = '#09090b';
+      ctx.fillRect(-6.5, -23, 13, 6);
+
+      ctx.fillStyle = visor;
+      ctx.shadowColor = visor;
+      ctx.shadowBlur = 8;
+      ctx.beginPath();
+      ctx.arc(-3 * facingMult, -20, 2.2, 0, Math.PI * 2);
+      ctx.arc(3.5 * facingMult, -20, 2.2, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.shadowBlur = 0;
+    } else if (helmetStyle === 'cyber_mask') {
+      // Angular Plate Mask
+      ctx.fillStyle = primary;
+      ctx.beginPath();
+      ctx.moveTo(-8.5, -14);
+      ctx.lineTo(-8.5, -25);
+      ctx.lineTo(0, -28.5);
+      ctx.lineTo(8.5, -25);
+      ctx.lineTo(8.5, -14);
+      ctx.closePath();
+      ctx.fill();
+
+      // V-shaped visor slit
+      ctx.fillStyle = visor;
+      ctx.shadowColor = visor;
+      ctx.shadowBlur = 8;
+      ctx.beginPath();
+      ctx.moveTo(-6 * facingMult, -22);
+      ctx.lineTo(6 * facingMult, -22);
+      ctx.lineTo(0, -18);
+      ctx.closePath();
+      ctx.fill();
+      ctx.shadowBlur = 0;
+
+      // Accented lower grill
+      ctx.strokeStyle = accent;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(-4, -15); ctx.lineTo(-2, -17);
+      ctx.moveTo(4, -15); ctx.lineTo(2, -17);
+      ctx.stroke();
+    } else if (helmetStyle === 'horned_helm') {
+      // Default dome base
+      ctx.fillStyle = primary;
+      ctx.beginPath();
+      ctx.arc(0, -19.5, 8.5, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Comm headset module
+      ctx.fillStyle = '#1e293b';
+      ctx.fillRect(-9.5, -22, 2, 5);
+      ctx.fillRect(7.5, -22, 2, 5);
+
+      // Curved Horns (using accent highlight color)
+      ctx.fillStyle = '#eab308'; // Gold horn base
+      ctx.beginPath();
+      // Left horn
+      ctx.moveTo(-6, -26);
+      ctx.quadraticCurveTo(-14, -34, -15, -30);
+      ctx.quadraticCurveTo(-10, -28, -5, -25);
+      ctx.closePath();
+      ctx.fill();
+      // Right horn
+      ctx.beginPath();
+      ctx.moveTo(6, -26);
+      ctx.quadraticCurveTo(14, -34, 15, -30);
+      ctx.quadraticCurveTo(10, -28, 5, -25);
+      ctx.closePath();
+      ctx.fill();
+
+      // Glowing visor with scan lines
+      ctx.fillStyle = visor;
+      ctx.shadowColor = visor;
+      ctx.shadowBlur = 8;
+      ctx.beginPath();
+      ctx.roundRect(-4, -21.5, 10 * facingMult, 4, 1.5);
+      ctx.fill();
+      ctx.shadowBlur = 0;
+
+      // Visor sweep line
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 0.5;
+      const visorSweepY = -19.5 + Math.sin(this.game.levelTime * 0.007) * 1.8;
+      ctx.beginPath();
+      ctx.moveTo(-3.5, visorSweepY);
+      ctx.lineTo(6, visorSweepY);
+      ctx.stroke();
+    } else {
+      // Default dome
+      ctx.fillStyle = primary;
+      ctx.beginPath();
+      ctx.arc(0, -19.5, 8.5, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Comm headset module
+      ctx.fillStyle = '#1e293b';
+      ctx.fillRect(-9.5, -22, 2, 5);
+      ctx.fillRect(7.5, -22, 2, 5);
+      
+      // Tiny diagonal antenna
+      ctx.strokeStyle = '#64748b';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(-8.5, -20);
+      ctx.lineTo(-13, -26);
+      ctx.stroke();
+      ctx.fillStyle = secondary;
+      ctx.beginPath();
+      ctx.arc(-13, -26, 1.5, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Glowing visor with scan lines
+      ctx.fillStyle = visor;
+      ctx.shadowColor = visor;
+      ctx.shadowBlur = 8;
+      ctx.beginPath();
+      ctx.roundRect(-4, -21.5, 10 * facingMult, 4, 1.5);
+      ctx.fill();
+      ctx.shadowBlur = 0; // reset
+
+      // Visor sweep line
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 0.5;
+      const visorSweepY = -19.5 + Math.sin(this.game.levelTime * 0.007) * 1.8;
+      ctx.beginPath();
+      ctx.moveTo(-3.5, visorSweepY);
+      ctx.lineTo(6, visorSweepY);
+      ctx.stroke();
+    }
 
     // 6. DRAW ARMS
-    ctx.fillStyle = color;
+    ctx.fillStyle = secondary;
     if (this.isAttacking) {
       // Slash pose: Arm extended forward holding sword arc
       ctx.save();
@@ -699,7 +953,6 @@ export class Player {
 
     ctx.restore();
   }
-
   drawPet(ctx) {
     const pet = this.game.saveData.equippedPet;
     if (pet === 'none') return;

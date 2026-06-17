@@ -1,4 +1,5 @@
 import { SaveSystem } from '../engine/SaveSystem.js';
+import { Player } from '../game/Player.js';
 
 export class UIManager {
   constructor(game) {
@@ -138,6 +139,10 @@ export class UIManager {
 
   // --- SCREEN ACTIVE STATES TOGGLE ---
   updateScreens() {
+    if (this.game.state !== 'shop') {
+      this.stopCreatorPreviewLoop();
+    }
+
     // Hide all
     for (let key in this.screens) {
       if (this.screens[key]) this.screens[key].classList.remove('active');
@@ -356,10 +361,27 @@ export class UIManager {
   // --- SHOP SCREEN LISTINGS ---
   populateShopGrid() {
     const grid = document.getElementById('shop-items-grid');
-    grid.innerHTML = '';
+    const creatorPanel = document.getElementById('shop-creator-panel');
 
     // Shard count update
     document.getElementById('shop-crystal-count').innerText = this.game.saveData.shards;
+
+    if (this.activeShopTab === 'creator') {
+      grid.style.display = 'none';
+      if (creatorPanel) {
+        creatorPanel.style.display = 'flex';
+        this.populateCreatorPanel();
+      }
+      return;
+    } else {
+      grid.style.display = 'grid';
+      if (creatorPanel) {
+        creatorPanel.style.display = 'none';
+        this.stopCreatorPreviewLoop();
+      }
+    }
+
+    grid.innerHTML = '';
 
     // Items list database
     const itemsData = {
@@ -389,6 +411,12 @@ export class UIManager {
         { id: 'puffling_pet', name: 'Puffling Companion', desc: 'Small bouncing purple critter.', cost: 180 },
         { id: 'tiny_golem', name: 'Golem Pet', desc: 'Tiny rock pet with glowing visor.', cost: 220 },
         { id: 'wisp', name: 'Glowing Wisp', desc: 'Yellow aura energy wisp.', cost: 280 }
+      ],
+      classes: [
+        { id: 'skyrunner', name: 'Skyrunner', desc: 'Standard balanced cyber explorer. Passive: +15% double-jump height.', cost: 0 },
+        { id: 'shadow_blade', name: 'Shadow Blade', desc: 'High speed, high energy, but only 2 HP. Passive: Halved air dash cooldown.', cost: 250 },
+        { id: 'crystal_knight', name: 'Crystal Knight', desc: 'High health (4 HP), slower speed. Passive: Starts levels with a shield.', cost: 300 },
+        { id: 'magma_ranger', name: 'Magma Ranger', desc: 'Standard stats. Passive: Projectiles & Fireballs do +1 damage.', cost: 200 }
       ]
     };
 
@@ -418,6 +446,9 @@ export class UIManager {
       } else if (this.activeShopTab === 'trails') {
         const colors = { none: '#7f8c8d', sparkle: '#eab308', fire: '#f97316', ice: '#06b6d4', shadow: '#d946ef' };
         colorDot.style.backgroundColor = colors[item.id] || '#fff';
+      } else if (this.activeShopTab === 'classes') {
+        const colors = { skyrunner: '#0ea5e9', shadow_blade: '#8b5cf6', crystal_knight: '#22d3ee', magma_ranger: '#f97316' };
+        colorDot.style.backgroundColor = colors[item.id] || '#fff';
       } else {
         const colors = { none: 'transparent', puffling_pet: '#c084fc', tiny_golem: '#94a3b8', wisp: '#fef08a' };
         colorDot.style.backgroundColor = colors[item.id] || '#fff';
@@ -437,8 +468,8 @@ export class UIManager {
       btn.className = 'shop-item-btn';
 
       // Check item ownership state
-      const saveUnlocks = { skins: 'unlockedSkins', capes: 'unlockedCapes', trails: 'unlockedTrails', pets: 'unlockedPets' };
-      const saveEquipped = { skins: 'equippedSkin', capes: 'equippedCape', trails: 'equippedTrail', pets: 'equippedPet' };
+      const saveUnlocks = { skins: 'unlockedSkins', capes: 'unlockedCapes', trails: 'unlockedTrails', pets: 'unlockedPets', classes: 'unlockedClasses' };
+      const saveEquipped = { skins: 'equippedSkin', capes: 'equippedCape', trails: 'equippedTrail', pets: 'equippedPet', classes: 'selectedClass' };
       
       const unlockedList = save[saveUnlocks[this.activeShopTab]];
       const equippedId = save[saveEquipped[this.activeShopTab]];
@@ -481,6 +512,234 @@ export class UIManager {
 
       grid.appendChild(card);
     });
+  }
+
+  // --- CHARACTER CREATOR PANEL HANDLERS ---
+  populateCreatorPanel() {
+    const save = this.game.saveData;
+
+    // Capitalize selected class name
+    const classNames = {
+      skyrunner: 'Skyrunner',
+      shadow_blade: 'Shadow Blade',
+      crystal_knight: 'Crystal Knight',
+      magma_ranger: 'Magma Ranger'
+    };
+    document.getElementById('preview-class-name').innerText = classNames[save.selectedClass] || 'Skyrunner';
+
+    // Set pickers values
+    document.getElementById('dye-primary').value = save.customColors.primary || '#1e293b';
+    document.getElementById('dye-secondary').value = save.customColors.secondary || '#0ea5e9';
+    document.getElementById('dye-visor').value = save.customColors.visor || '#22d3ee';
+    document.getElementById('dye-accent').value = save.customColors.accent || '#ffffff';
+
+    this.initCreatorListeners();
+    this.populatePartsSelectors();
+    this.startCreatorPreviewLoop();
+  }
+
+  initCreatorListeners() {
+    if (this.creatorListenersInitialized) return;
+    this.creatorListenersInitialized = true;
+
+    const pickers = {
+      primary: document.getElementById('dye-primary'),
+      secondary: document.getElementById('dye-secondary'),
+      visor: document.getElementById('dye-visor'),
+      accent: document.getElementById('dye-accent')
+    };
+
+    for (let key in pickers) {
+      if (pickers[key]) {
+        pickers[key].addEventListener('input', (e) => {
+          this.game.saveData.customColors[key] = e.target.value;
+          SaveSystem.save(this.game.saveData);
+        });
+      }
+    }
+  }
+
+  populatePartsSelectors() {
+    const helmetsList = [
+      { id: 'default', name: 'Default Dome', cost: 0 },
+      { id: 'scanning_visor', name: 'Scanning Visor', cost: 100 },
+      { id: 'goggle_visor', name: 'Goggle Visor', cost: 120 },
+      { id: 'cyber_mask', name: 'Cyber Mask', cost: 180 },
+      { id: 'horned_helm', name: 'Horned Helm', cost: 250 }
+    ];
+
+    const armorsList = [
+      { id: 'default', name: 'Default Chassis', cost: 0 },
+      { id: 'heavy_plate', name: 'Heavy Platemail', cost: 120 },
+      { id: 'energy_robes', name: 'Energy Robes', cost: 150 },
+      { id: 'hazard_gear', name: 'Hazard Gear', cost: 200 }
+    ];
+
+    const save = this.game.saveData;
+
+    // Helmets
+    const helmContainer = document.getElementById('helmets-selector-list');
+    helmContainer.innerHTML = '';
+    helmetsList.forEach(item => {
+      const el = document.createElement('div');
+      el.className = 'part-item';
+      
+      const isOwned = save.unlockedHelmets.includes(item.id);
+      const isEquipped = save.equippedHelmet === item.id;
+
+      if (isEquipped) {
+        el.classList.add('equipped');
+      } else if (isOwned) {
+        el.classList.add('owned');
+      } else {
+        el.classList.add('locked');
+      }
+
+      el.innerHTML = `
+        <div class="part-name">${item.name}</div>
+        <div class="part-status">${isEquipped ? 'Equipped' : (isOwned ? 'Equip' : `${item.cost} Shards`)}</div>
+      `;
+
+      el.addEventListener('click', () => {
+        if (isEquipped) return;
+        if (isOwned) {
+          save.equippedHelmet = item.id;
+          SaveSystem.save(save);
+          this.game.audio.playSFX('victory_relic');
+          this.populatePartsSelectors();
+        } else {
+          // Buy
+          if (save.shards >= item.cost) {
+            save.shards -= item.cost;
+            save.unlockedHelmets.push(item.id);
+            save.equippedHelmet = item.id;
+            SaveSystem.save(save);
+            this.game.audio.playSFX('victory');
+            document.getElementById('shop-crystal-count').innerText = save.shards;
+            this.populatePartsSelectors();
+          } else {
+            this.triggerToast("Not enough Crystal Shards!");
+          }
+        }
+      });
+
+      helmContainer.appendChild(el);
+    });
+
+    // Armors
+    const armorContainer = document.getElementById('armors-selector-list');
+    armorContainer.innerHTML = '';
+    armorsList.forEach(item => {
+      const el = document.createElement('div');
+      el.className = 'part-item';
+      
+      const isOwned = save.unlockedArmors.includes(item.id);
+      const isEquipped = save.equippedArmor === item.id;
+
+      if (isEquipped) {
+        el.classList.add('equipped');
+      } else if (isOwned) {
+        el.classList.add('owned');
+      } else {
+        el.classList.add('locked');
+      }
+
+      el.innerHTML = `
+        <div class="part-name">${item.name}</div>
+        <div class="part-status">${isEquipped ? 'Equipped' : (isOwned ? 'Equip' : `${item.cost} Shards`)}</div>
+      `;
+
+      el.addEventListener('click', () => {
+        if (isEquipped) return;
+        if (isOwned) {
+          save.equippedArmor = item.id;
+          SaveSystem.save(save);
+          this.game.audio.playSFX('victory_relic');
+          this.populatePartsSelectors();
+        } else {
+          // Buy
+          if (save.shards >= item.cost) {
+            save.shards -= item.cost;
+            save.unlockedArmors.push(item.id);
+            save.equippedArmor = item.id;
+            SaveSystem.save(save);
+            this.game.audio.playSFX('victory');
+            document.getElementById('shop-crystal-count').innerText = save.shards;
+            this.populatePartsSelectors();
+          } else {
+            this.triggerToast("Not enough Crystal Shards!");
+          }
+        }
+      });
+
+      armorContainer.appendChild(el);
+    });
+  }
+
+  startCreatorPreviewLoop() {
+    this.stopCreatorPreviewLoop();
+
+    const canvas = document.getElementById('creator-preview-canvas');
+    if (!canvas) return;
+
+    const ctx = canvas.getContext('2d');
+    
+    // Create a mock game context
+    const mockGame = {
+      saveData: this.game.saveData,
+      levelTime: 0,
+      activeBoss: null,
+      enemies: [],
+      particles: { particles: [], spawnGlideFeathers: () => {}, spawnDust: () => {}, spawnSparkles: () => {} },
+      audio: { playSFX: () => {} },
+      ui: { updateHUD: () => {}, updateHUDEnergy: () => {} }
+    };
+    
+    // Position player centered in preview area
+    // Center is (width/2, height/2), but player drawing translate adds width/2, height/2.
+    // So if player is size 24x38, let's set x = canvas.width / 2 - 12, y = canvas.height / 2 - 10
+    const previewPlayer = new Player(mockGame, canvas.width / 2 - 12, canvas.height / 2 - 10);
+    previewPlayer.history = [];
+    for (let i = 0; i < 8; i++) {
+      previewPlayer.history.push({ x: previewPlayer.x, y: previewPlayer.y });
+    }
+
+    const loop = () => {
+      if (this.game.state !== 'shop' || this.activeShopTab !== 'creator') {
+        return;
+      }
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      
+      // Update variables
+      previewPlayer.animTime += 16.67;
+      previewPlayer.runCycle += 0.04;
+      previewPlayer.vx = 0.25; // run in place
+      previewPlayer.onGround = true;
+      mockGame.levelTime = Date.now();
+
+      // Cape sways
+      const windAngle = Math.sin(previewPlayer.animTime * 0.005) * 6;
+      previewPlayer.history.push({ 
+        x: previewPlayer.x + windAngle, 
+        y: previewPlayer.y 
+      });
+      if (previewPlayer.history.length > 8) previewPlayer.history.shift();
+
+      // Draw
+      previewPlayer.draw(ctx);
+
+      this.creatorPreviewAnimFrame = requestAnimationFrame(loop);
+    };
+    
+    this.creatorPreviewAnimFrame = requestAnimationFrame(loop);
+  }
+
+  stopCreatorPreviewLoop() {
+    if (this.creatorPreviewAnimFrame) {
+      cancelAnimationFrame(this.creatorPreviewAnimFrame);
+      this.creatorPreviewAnimFrame = null;
+    }
   }
 
   // --- ACHIEVEMENTS RENDER ---

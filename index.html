@@ -123,9 +123,70 @@
           <div class="shop-tab" data-tab="capes">Capes</div>
           <div class="shop-tab" data-tab="trails">Trails</div>
           <div class="shop-tab" data-tab="pets">Pets</div>
+          <div class="shop-tab" data-tab="classes">Classes</div>
+          <div class="shop-tab" data-tab="creator">Creator</div>
         </div>
         <div class="shop-grid" id="shop-items-grid">
           <!-- Dynamically populated via UIManager.js -->
+        </div>
+
+        <div class="creator-panel" id="shop-creator-panel" style="display: none;">
+          <!-- Left Column: Hologram Preview -->
+          <div class="creator-preview-box glass-panel">
+            <div class="preview-header">
+              <span class="preview-status glow-text">SUBJECT: ACTIVE</span>
+              <span class="preview-class-label" id="preview-class-name">Skyrunner</span>
+            </div>
+            <div class="hologram-viewport">
+              <canvas id="creator-preview-canvas" width="160" height="200"></canvas>
+              <div class="scanlines"></div>
+            </div>
+            <div class="preview-footer">
+              <span class="system-status">HOLO-EMULATION ONLINE</span>
+            </div>
+          </div>
+
+          <!-- Right Column: Settings & Lockables -->
+          <div class="creator-options-box glass-panel">
+            <!-- Group 1: Color Dyes (Free) -->
+            <div class="options-group">
+              <h3 class="group-title">Color Dyes <span class="badge-free">FREE</span></h3>
+              <div class="color-pickers-grid">
+                <div class="color-picker-item">
+                  <label for="dye-primary">Primary Armor</label>
+                  <input type="color" id="dye-primary" value="#1e293b">
+                </div>
+                <div class="color-picker-item">
+                  <label for="dye-secondary">Secondary Body</label>
+                  <input type="color" id="dye-secondary" value="#0ea5e9">
+                </div>
+                <div class="color-picker-item">
+                  <label for="dye-visor">Visor Glow</label>
+                  <input type="color" id="dye-visor" value="#22d3ee">
+                </div>
+                <div class="color-picker-item">
+                  <label for="dye-accent">Accent Highlight</label>
+                  <input type="color" id="dye-accent" value="#ffffff">
+                </div>
+              </div>
+            </div>
+
+            <!-- Group 2: Helmet Parts (Unlockable) -->
+            <div class="options-group">
+              <h3 class="group-title">Helmet Chassis</h3>
+              <div class="parts-selector-list" id="helmets-selector-list">
+                <!-- Dynamically populated via UIManager.js -->
+              </div>
+            </div>
+
+            <!-- Group 3: Armor Parts (Unlockable) -->
+            <div class="options-group">
+              <h3 class="group-title">Armor Frame</h3>
+              <div class="parts-selector-list" id="armors-selector-list">
+                <!-- Dynamically populated via UIManager.js -->
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 

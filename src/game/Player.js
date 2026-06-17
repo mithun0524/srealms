@@ -409,8 +409,24 @@ export class Player {
     else if (selectedClass === 'crystal_knight') classColor = '#60a5fa';
     else if (selectedClass === 'magma_ranger') classColor = '#f97316';
 
-    const splashColor = this.powerups.has('fire') ? '#f97316' : (this.powerups.has('thunder') ? '#60a5fa' : classColor);
-    this.game.particles.spawnSparkles(swipeRect.x + reach / 2, swipeRect.y + swipeRect.height / 2, splashColor, 6);
+    // Weapon-specific particle emission
+    const equippedWeapon = this.game.saveData.equippedWeapon || 'default';
+    if (equippedWeapon === 'energy_saber') {
+      // Crackling plasma sparks
+      this.game.particles.spawnSparkles(swipeRect.x + reach / 2, swipeRect.y + swipeRect.height / 2, '#f43f5e', 4);
+      this.game.particles.spawnSparkles(swipeRect.x + reach / 2, swipeRect.y + swipeRect.height / 2, '#38bdf8', 4);
+    } else if (equippedWeapon === 'crystal_spear') {
+      // Diamond crystal glow sparkles
+      this.game.particles.spawnSparkles(swipeRect.x + reach / 2, swipeRect.y + swipeRect.height / 2, '#a855f7', 4);
+      this.game.particles.spawnSparkles(swipeRect.x + reach / 2, swipeRect.y + swipeRect.height / 2, '#22d3ee', 4);
+    } else if (equippedWeapon === 'obsidian_greatsword') {
+      // Molten orange lava flames
+      this.game.particles.spawnFlame(swipeRect.x + reach / 2, swipeRect.y + swipeRect.height / 2, 6);
+    } else {
+      // Default Runic Blade: standard class color sparkles
+      const splashColor = this.powerups.has('fire') ? '#f97316' : (this.powerups.has('thunder') ? '#60a5fa' : classColor);
+      this.game.particles.spawnSparkles(swipeRect.x + reach / 2, swipeRect.y + swipeRect.height / 2, splashColor, 6);
+    }
 
     // Hit standard/elite enemies
     for (let enemy of this.game.enemies) {
@@ -1148,7 +1164,8 @@ export class Player {
       ctx.save();
       ctx.rotate(-0.5 * facingMult);
       ctx.fillRect(4 * facingMult, -6, 12 * facingMult, 4);
-      // Glowing Runic Sword
+      // Render based on equipped weapon
+      const equippedWeapon = this.game.saveData.equippedWeapon || 'default';
       let bladeColor = '#e2e8f0';
       const selectedClass = this.game.saveData.selectedClass || 'skyrunner';
       if (selectedClass === 'skyrunner') bladeColor = '#22d3ee';
@@ -1156,10 +1173,113 @@ export class Player {
       else if (selectedClass === 'crystal_knight') bladeColor = '#60a5fa';
       else if (selectedClass === 'magma_ranger') bladeColor = '#f97316';
 
-      ctx.fillStyle = this.powerups.has('fire') ? '#f97316' : (this.powerups.has('thunder') ? '#60a5fa' : bladeColor);
-      ctx.shadowColor = ctx.fillStyle;
-      ctx.shadowBlur = 8;
-      ctx.fillRect(14 * facingMult, -15, 2.5 * facingMult, 15);
+      const glowColor = this.powerups.has('fire') ? '#f97316' : (this.powerups.has('thunder') ? '#60a5fa' : bladeColor);
+
+      if (equippedWeapon === 'energy_saber') {
+        // Plasma Blade Saber: cylindrical neon beam with electric arcs
+        ctx.shadowColor = glowColor;
+        ctx.shadowBlur = 12;
+        // Cylindrical handle
+        ctx.fillStyle = '#1e293b';
+        ctx.fillRect(14 * facingMult, -4, 2 * facingMult, 4);
+        // Energy emitter ring
+        ctx.fillStyle = '#64748b';
+        ctx.fillRect(12.5 * facingMult, -6, 5 * facingMult, 2);
+        // Neon plasma beam cylinder
+        ctx.fillStyle = glowColor;
+        ctx.beginPath();
+        if (ctx.roundRect) {
+          ctx.roundRect(13.5 * facingMult, -26, 3 * facingMult, 20, 1.5);
+          ctx.fill();
+        } else {
+          ctx.fillRect(13.5 * facingMult, -26, 3 * facingMult, 20);
+        }
+        // White inner hot core
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        if (ctx.roundRect) {
+          ctx.roundRect(14.5 * facingMult, -25, 1 * facingMult, 18, 0.8);
+          ctx.fill();
+        } else {
+          ctx.fillRect(14.5 * facingMult, -25, 1 * facingMult, 18);
+        }
+      } else if (equippedWeapon === 'crystal_spear') {
+        // Resonance Crystal Spear: long metallic shaft with a double-diamond crystal spearhead
+        ctx.shadowColor = glowColor;
+        ctx.shadowBlur = 10;
+        // Long pole arm shaft
+        ctx.fillStyle = '#94a3b8';
+        ctx.fillRect(14.5 * facingMult, -4, 1.2 * facingMult, 14); // extend shaft downwards/backwards
+        ctx.fillRect(14.5 * facingMult, -20, 1.2 * facingMult, 16); // extend shaft upwards
+        // Spearhead connector sleeve
+        ctx.fillStyle = '#475569';
+        ctx.fillRect(13 * facingMult, -22, 4 * facingMult, 2);
+        // Double diamond crystal head
+        ctx.fillStyle = glowColor;
+        ctx.beginPath();
+        ctx.moveTo(15 * facingMult, -34); // tip
+        ctx.lineTo(17.5 * facingMult, -27); // right corner
+        ctx.lineTo(15 * facingMult, -22); // base
+        ctx.lineTo(12.5 * facingMult, -27); // left corner
+        ctx.closePath();
+        ctx.fill();
+        // Inner glowing core line
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 0.8;
+        ctx.beginPath();
+        ctx.moveTo(15 * facingMult, -23);
+        ctx.lineTo(15 * facingMult, -33);
+        ctx.stroke();
+      } else if (equippedWeapon === 'obsidian_greatsword') {
+        // Volcanic Obsidian Greatsword: massive craggy lava-infused stone blade
+        ctx.shadowColor = glowColor;
+        ctx.shadowBlur = 10;
+        // Sturdy hilt
+        ctx.fillStyle = '#0f172a';
+        ctx.fillRect(13.5 * facingMult, -3, 3 * facingMult, 3);
+        // Wide crossguard
+        ctx.fillStyle = '#1e293b';
+        ctx.fillRect(10 * facingMult, -5, 10 * facingMult, 2);
+        // Wide craggy stone blade
+        ctx.fillStyle = '#090d16'; // near black basalt
+        ctx.beginPath();
+        ctx.moveTo(12 * facingMult, -5);
+        ctx.lineTo(12 * facingMult, -25); // craggy left
+        ctx.lineTo(13.5 * facingMult, -26);
+        ctx.lineTo(15 * facingMult, -29); // tip
+        ctx.lineTo(16.5 * facingMult, -26);
+        ctx.lineTo(18 * facingMult, -25); // craggy right
+        ctx.lineTo(18 * facingMult, -5);
+        ctx.closePath();
+        ctx.fill();
+        // Flowing orange lava fissure core line
+        ctx.fillStyle = glowColor;
+        ctx.fillRect(14 * facingMult, -24, 2 * facingMult, 18);
+        // Molten spots
+        ctx.fillStyle = '#ef4444';
+        ctx.fillRect(14.5 * facingMult, -22, 1 * facingMult, 2);
+        ctx.fillRect(14.5 * facingMult, -13, 1 * facingMult, 3);
+      } else {
+        // Glowing Runic Blade: rectangular sword with runic line details
+        ctx.fillStyle = glowColor;
+        ctx.shadowColor = glowColor;
+        ctx.shadowBlur = 8;
+        // Draw hilt
+        ctx.fillStyle = '#475569';
+        ctx.fillRect(14 * facingMult, -5, 2.5 * facingMult, 3);
+        // Draw crossguard
+        ctx.fillRect(12 * facingMult, -7, 6.5 * facingMult, 2);
+        // Draw blade
+        ctx.fillStyle = glowColor;
+        ctx.fillRect(14 * facingMult, -22, 2.5 * facingMult, 15);
+        // Draw runic highlight circuit line
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 0.6;
+        ctx.beginPath();
+        ctx.moveTo(15.2 * facingMult, -8);
+        ctx.lineTo(15.2 * facingMult, -19);
+        ctx.stroke();
+      }
       ctx.restore();
     } else if (this.isGliding) {
       // Gliding: arms out wide

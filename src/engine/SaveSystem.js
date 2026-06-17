@@ -22,6 +22,8 @@ export class SaveSystem {
       equippedArmor: 'default',
       unlockedHelmets: ['default'],
       unlockedArmors: ['default'],
+      equippedWeapon: 'default',
+      unlockedWeapons: ['default'],
       completedLevels: {}, // Format: { "w1-l1": { shards: 120, relics: 3, time: 240, grade: 'S' } }
       achievements: [], // List of achievement ids
       musicVolume: 0.7,

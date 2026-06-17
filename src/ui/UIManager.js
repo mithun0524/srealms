@@ -422,6 +422,12 @@ export class UIManager {
         { id: 'shadow_blade', name: 'Shadow Blade', desc: 'High speed, high energy, but only 2 HP. Passive: Halved air dash cooldown.', cost: 250 },
         { id: 'crystal_knight', name: 'Crystal Knight', desc: 'High health (4 HP), slower speed. Passive: Starts levels with a shield.', cost: 300 },
         { id: 'magma_ranger', name: 'Magma Ranger', desc: 'Standard stats. Passive: Projectiles & Fireballs do +1 damage.', cost: 200 }
+      ],
+      weapons: [
+        { id: 'default', name: 'Runic Blade', desc: 'Alloy blade etched with cyan energy circuits.', cost: 0 },
+        { id: 'energy_saber', name: 'Energy Saber', desc: 'Plasma blade humming with electric discharges.', cost: 150 },
+        { id: 'crystal_spear', name: 'Crystal Spear', desc: 'Resonance gem spear emitting diamond sparks.', cost: 250 },
+        { id: 'obsidian_greatsword', name: 'Obsidian Greatsword', desc: 'Heavy basalt sword emitting molten flame sparks.', cost: 400 }
       ]
     };
 
@@ -453,6 +459,9 @@ export class UIManager {
         colorDot.style.backgroundColor = colors[item.id] || '#fff';
       } else if (this.activeShopTab === 'classes') {
         const colors = { skyrunner: '#0ea5e9', shadow_blade: '#8b5cf6', crystal_knight: '#22d3ee', magma_ranger: '#f97316' };
+        colorDot.style.backgroundColor = colors[item.id] || '#fff';
+      } else if (this.activeShopTab === 'weapons') {
+        const colors = { default: '#22d3ee', energy_saber: '#f43f5e', crystal_spear: '#60a5fa', obsidian_greatsword: '#f97316' };
         colorDot.style.backgroundColor = colors[item.id] || '#fff';
       } else {
         const colors = { none: 'transparent', puffling_pet: '#c084fc', tiny_golem: '#94a3b8', wisp: '#fef08a' };
@@ -509,8 +518,8 @@ export class UIManager {
       btn.className = 'shop-item-btn';
 
       // Check item ownership state
-      const saveUnlocks = { skins: 'unlockedSkins', capes: 'unlockedCapes', trails: 'unlockedTrails', pets: 'unlockedPets', classes: 'unlockedClasses' };
-      const saveEquipped = { skins: 'equippedSkin', capes: 'equippedCape', trails: 'equippedTrail', pets: 'equippedPet', classes: 'selectedClass' };
+      const saveUnlocks = { skins: 'unlockedSkins', capes: 'unlockedCapes', trails: 'unlockedTrails', pets: 'unlockedPets', classes: 'unlockedClasses', weapons: 'unlockedWeapons' };
+      const saveEquipped = { skins: 'equippedSkin', capes: 'equippedCape', trails: 'equippedTrail', pets: 'equippedPet', classes: 'selectedClass', weapons: 'equippedWeapon' };
       
       const unlockedList = save[saveUnlocks[this.activeShopTab]];
       const equippedId = save[saveEquipped[this.activeShopTab]];
@@ -825,6 +834,7 @@ export class UIManager {
       mockSaveData.equippedTrail = this.game.saveData.equippedTrail;
       mockSaveData.equippedPet = this.game.saveData.equippedPet;
       mockSaveData.selectedClass = this.game.saveData.selectedClass;
+      mockSaveData.equippedWeapon = this.game.saveData.equippedWeapon;
       mockSaveData.customColors.primary = this.game.saveData.customColors.primary;
       mockSaveData.customColors.secondary = this.game.saveData.customColors.secondary;
       mockSaveData.customColors.visor = this.game.saveData.customColors.visor;

@@ -432,6 +432,7 @@ h1, h2, h3, h4 {
   cursor: pointer;
   transition: all 0.2s ease;
   font-family: var(--font-display);
+  margin-top: auto;
 }
 
 .shop-item-btn.buy {
